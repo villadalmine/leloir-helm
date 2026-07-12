@@ -5,7 +5,7 @@ Public Helm chart repository for the Leloir Control Plane.
 ## Installation
 
 ```bash
-helm repo add leloir https://charts.leloir.io
+helm repo add leloir https://charts.leloir.cybercirujas.club
 helm repo update
 helm install leloir-cp leloir/control-plane \
   --namespace leloir-system --create-namespace \
