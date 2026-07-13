@@ -4,3 +4,4 @@ charts/*/charts/*.tgz
 
 # Doc interno de planificación (no va al repo público)
 IMPLEMENTATION_PLAN.md
+docs/DEPENDENCIES_DEBATE.md
