@@ -54,6 +54,11 @@ postgresql:
     persistence:
       enabled: true
       size: 8Gi
+    # La imagen pgvector/pgvector (postgres estándar) necesita /var/run/postgresql
+    # escribible; el chart Bitnami monta el rootFS read-only por default → crash.
+    # Lo desactivamos para esta imagen no-Bitnami.
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
 # Si postgresql.enabled=false, inyectá un DSN a un Postgres externo (ej. RDS):
 externalDatabase:
   dsn: ""                 # postgres://user:pass@host:5432/leloir?sslmode=require

@@ -25,6 +25,25 @@ spec:
       {{- with .Values.nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        # Esperar a Postgres → sin CrashLoop por orden de arranque.
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ if .Values.postgresql.enabled }}{{ include "leloir.postgresHost" . }}{{ else }}$(echo "$LELOIR_DATABASE_DSN" | sed -E 's#.*@([^:/]+).*#\1#'){{ end }} 5432; do
+                echo "waiting for postgres..."; sleep 2
+              done
+          {{- if not .Values.postgresql.enabled }}
+          env:
+            - name: LELOIR_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leloir.dsnSecret" . }}
+                  key: {{ include "leloir.dsnSecretKey" . }}
+          {{- end }}
       containers:
         - name: memory-mcp
           image: {{ include "leloir.image" . }}
