@@ -6,7 +6,7 @@ description: |
   guards, audit, and the MCP Gateway as the single governed path to tools.
 type: application
 # Chart version — bump on any chart change.
-version: 0.1.0
+version: 0.1.1
 # The Leloir version this chart deploys (image tag default).
 appVersion: "0.1.0"
 home: https://leloir.cybercirujas.club

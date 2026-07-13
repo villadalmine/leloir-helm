@@ -1,74 +1,73 @@
-# Probar Leloir en un sandbox efímero (vcluster)
+# Testing Leloir in an Ephemeral Sandbox (vcluster)
 
-¿Querés evaluar Leloir **sin ensuciar tu cluster** ni levantar VMs pesadas? Usá
-[vcluster](https://www.vcluster.com/): un plano de control de Kubernetes completo
-que corre **dentro de un simple namespace** de tu cluster. Lo creás, instalás
-Leloir adentro, jugás, y lo **destruís en segundos** — sin dejar rastro.
+Want to evaluate Leloir **without polluting your cluster** or spinning up heavy VMs? Use
+[vcluster](https://www.vcluster.com/): a fully functional Kubernetes control plane
+that runs **inside a simple namespace** of your existing cluster. You create it, install
+Leloir inside, play around, and **destroy it in seconds** — leaving no trace behind.
 
-Es el patrón ideal para evaluar charts: aislamiento total y descartable.
+This is the ideal pattern for evaluating charts: total and disposable isolation.
 
-## Requisitos
+## Prerequisites
 
-- Un cluster Kubernetes cualquiera (Minikube, Kind, K3s, EKS…) con `kubectl` configurado.
-- [`helm`](https://helm.sh/docs/intro/install/) v3.8+ (soporte OCI).
-- El CLI de [`vcluster`](https://www.vcluster.com/docs/get-started) (`v0.20+`).
+- Any Kubernetes cluster (Minikube, Kind, K3s, EKS…) with `kubectl` configured.
+- [`helm`](https://helm.sh/docs/intro/install/) v3.8+ (OCI support required).
+- The [`vcluster`](https://www.vcluster.com/docs/get-started) CLI (`v0.20+`).
 
-## 1. Crear el vcluster efímero
+## 1. Create the ephemeral vcluster
 
 ```bash
 vcluster create leloir-sandbox -n vcluster-leloir --connect
 ```
 
-`--connect` apunta tu `kubectl`/`helm` al cluster virtual. (Todo lo que hagas
-ahora ocurre DENTRO del sandbox.)
+`--connect` automatically points your `kubectl`/`helm` to the virtual cluster. (Everything you do
+now happens INSIDE the sandbox.)
 
-## 2. Instalar Leloir desde GHCR (OCI)
+## 2. Install Leloir from GHCR (OCI)
 
 ```bash
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 \
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
   --namespace leloir-system --create-namespace \
   --set profile=local
 ```
 
-El `profile: local` es seguro-para-probar: genera los Secrets nativos (token
-interno, admin estático), levanta un **Postgres 16 + pgvector** interno, y deja
-OIDC apagado. Todo lo OSS queda prendido (gateway L7 + budgets + RBAC).
+The `profile=local` setting is safe-to-test: it generates native Secrets (internal token, static admin), spins up an internal **Postgres 16 + pgvector**, and leaves
+OIDC turned off. All the OSS features remain enabled (L7 gateway + budgets + RBAC).
 
-## 3. Verificar que levantó
+## 3. Verify the deployment
 
 ```bash
 kubectl get pods -n leloir-system
 ```
 
-Deberías ver los 5 pods `1/1 Running` (control plane, gateway, memory-mcp,
-webhook-receiver, postgresql). El control plane espera a Postgres con un
-`initContainer` (arranque limpio, sin CrashLoop).
+You should see 5 pods `1/1 Running` (control plane, gateway, memory-mcp,
+webhook-receiver, postgresql). The control plane waits for Postgres via an
+`initContainer` (clean startup, no CrashLoops).
 
-Accedé a la API/UI:
+Access the API/UI:
 
 ```bash
 kubectl -n leloir-system port-forward svc/leloir-controlplane 8080:80
 # → http://localhost:8080
 ```
 
-## 4. Destruir el sandbox (sin rastro)
+## 4. Destroy the sandbox (no trace left)
 
 ```bash
 vcluster disconnect
 vcluster delete leloir-sandbox -n vcluster-leloir
 ```
 
-Listo — el cluster virtual y TODO lo que instalaste adentro desaparecen. Tu
-cluster principal quedó intacto.
+That's it — the virtual cluster and EVERYTHING you installed inside it vanishes. Your
+main host cluster remains completely untouched.
 
 ---
 
-## Para desarrolladores del chart
+## For Chart Developers
 
-Si estás iterando sobre el chart (código local, no la versión publicada), usá el
-script [`scripts/test-vcluster.sh`](../scripts/test-vcluster.sh): crea un vcluster,
-instala el chart **desde el directorio local** con `--wait`, y reporta cualquier
-`CrashLoopBackOff` o error de volumen. Ideal para el ciclo de CI/validación.
+If you are iterating on the chart (using local code, not the published release), use the
+[`scripts/test-vcluster.sh`](../scripts/test-vcluster.sh) script: it creates a vcluster,
+installs the chart **from the local directory** with `--wait`, and reports any
+`CrashLoopBackOff` or volume errors. It's ideal for the CI/validation loop.
 
-> Idea futura: un **dev-environment "probalo" self-service** (vcluster + ArgoCD)
-> empaquetado, para que un usuario levante Leloir con un click.
+> Future idea: a **self-service "try it out" dev-environment** (vcluster + ArgoCD)
+> packaged together, so a user can spin up Leloir with a single click.
