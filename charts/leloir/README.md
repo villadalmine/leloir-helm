@@ -5,7 +5,7 @@ El chart público **standalone** de [Leloir](https://github.com/villadalmine/lel
 
 ```bash
 # Instalación (perfil local, Postgres+pgvector bundled)
-helm install leloir oci://ghcr.io/villadalmine/leloir-helm --namespace leloir --create-namespace
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 --namespace leloir --create-namespace
 ```
 
 ## Qué deploya
@@ -48,7 +48,7 @@ Recomendamos usar [vcluster](https://www.vcluster.com/) para probar Leloir sin e
 vcluster create leloir-sandbox -n vcluster-leloir --connect
 
 # 2. Instalar Leloir dentro del sandbox
-helm install leloir oci://ghcr.io/villadalmine/leloir-helm --namespace leloir-system --create-namespace --set profile=local
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 --namespace leloir-system --create-namespace --set profile=local
 
 # 3. Destruir el sandbox cuando termines (sin dejar rastro)
 vcluster disconnect
@@ -58,7 +58,7 @@ vcluster delete leloir-sandbox -n vcluster-leloir
 ## Postgres externo
 
 ```bash
-helm install leloir oci://ghcr.io/villadalmine/leloir-helm \
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 \
   --set postgresql.enabled=false \
   --set externalDatabase.dsn="postgres://user:pass@rds-host:5432/leloir?sslmode=require"
 ```
