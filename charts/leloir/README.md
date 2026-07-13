@@ -1,63 +1,61 @@
 # Leloir Helm Chart
 
-El chart público **standalone** de [Leloir](https://github.com/villadalmine/leloir)
-— el control plane de governance para agentes de IA en Kubernetes.
+The public **standalone** chart for [Leloir](https://github.com/villadalmine/leloir)
+— the governance control plane for AI agents on Kubernetes.
 
 ```bash
-# Instalación (perfil local, Postgres+pgvector bundled)
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 --namespace leloir --create-namespace
+# Installation (local profile, bundled Postgres+pgvector)
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 --namespace leloir-system --create-namespace
 ```
 
-## Qué deploya
+## What it deploys
 
-Un solo chart, todo el stack: **control plane** (+ listener interno), **MCP Gateway**,
-**memory-mcp**, **webhook-receiver** (Alertmanager → Leloir), los **10 CRDs**, RBAC
-(watcher cluster-wide read-only), y **Postgres 16 + pgvector** (subchart Bitnami,
-opcional).
+A single chart, the full stack: **control plane** (+ internal listener), **MCP Gateway**,
+**memory-mcp**, **webhook-receiver** (Alertmanager → Leloir), all **10 CRDs**, RBAC
+(cluster-wide read-only watcher), and **Postgres 16 + pgvector** (Bitnami subchart,
+optional).
 
-## Modelo open-core (license-ready)
+## Open-core model (license-ready)
 
-Todo lo **OSS** está prendido por defecto y es gratis (gateway L7 + budgets + RBAC +
-dashboards). Las features **licenciadas** (RAG, Anomaly Quarantine, mTLS/SPIFFE) se
-gatean por la presencia de `license.key` en los Secrets — el core las habilita/desactiva
-en **runtime** (la validación criptográfica es futura). El chart sólo transporta la llave:
+All **OSS** features are enabled by default and are free (L7 gateway + budgets + RBAC +
+dashboards). **Licensed** features (RAG, Anomaly Quarantine, mTLS/SPIFFE) are gated by
+the presence of a `license.key` in the Secrets — the core enables/disables them at
+**runtime** (cryptographic validation is planned for the future). The chart only transports the key:
 
 ```yaml
 license:
-  key: ""                 # vacío = OSS; con llave = features licenciadas (runtime)
+  key: ""                 # empty = OSS; with key = licensed features enabled (runtime)
 ```
 
-## Valores clave
+## Key Values
 
-| Valor | Default | Descripción |
+| Value | Default | Description |
 |-------|---------|-------------|
-| `profile` | `local` | `local` (seguro-para-probar) o `corporate` (OIDC + Postgres externo) |
-| `postgresql.enabled` | `true` | Postgres+pgvector bundled; `false` → `externalDatabase.dsn` |
-| `postgresql.auth.password` | `leloir-change-me` | ⚠ override en prod |
-| `image.repository` | `ghcr.io/villadalmine/leloir-controlplane` | privada — inyectá `imagePullSecrets` |
-| `ingress.enabled` | `true` | Ingress estándar; o `gateway_api.enabled` para HTTPRoute |
-| `hardening.mtls.enabled` | `false` | mTLS SPIFFE (Mission Critical; requiere Cilium) |
-| `rag.enabled` / `anomaly.*` | on | features Team (runtime las gatea por licencia) |
+| `profile` | `local` | `local` (safe-to-test) or `corporate` (OIDC + external Postgres) |
+| `postgresql.enabled` | `true` | Bundled Postgres+pgvector; `false` → `externalDatabase.dsn` |
+| `postgresql.auth.password` | `leloir-change-me` | ⚠ override in prod |
+| `image.repository` | `ghcr.io/villadalmine/leloir-controlplane` | private — inject `imagePullSecrets` |
+| `ingress.enabled` | `true` | Standard Ingress; or `gateway_api.enabled` for HTTPRoute |
+| `hardening.mtls.enabled` | `false` | mTLS SPIFFE (Mission Critical; requires Cilium) |
+| `rag.enabled` / `anomaly.*` | on | Team features (runtime gates them by license) |
 
-## Evaluación Segura (Sandbox con vcluster)
+## Safe Evaluation (Sandbox with vcluster)
 
-Recomendamos usar [vcluster](https://www.vcluster.com/) para probar Leloir sin ensuciar tu cluster principal — un plano de control efímero 100% aislado, destruible en segundos:
+We highly recommend using [vcluster](https://www.vcluster.com/) to test Leloir without polluting your main cluster — a 100% isolated ephemeral control plane, destructible in seconds:
 
 ```bash
-vcluster create leloir-sandbox -n vcluster-leloir --connect                        # 1. sandbox efímero
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 \
-  --namespace leloir-system --create-namespace --set profile=local                 # 2. instalar Leloir
-vcluster delete leloir-sandbox -n vcluster-leloir                                   # 3. destruir sin rastro
+vcluster create leloir-sandbox -n vcluster-leloir --connect                        # 1. ephemeral sandbox
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
+  --namespace leloir-system --create-namespace --set profile=local                 # 2. install Leloir
+vcluster delete leloir-sandbox -n vcluster-leloir                                   # 3. destroy without a trace
 ```
 
-📖 **Guía paso a paso (requisitos, verificación, acceso a la UI):** [`docs/EVALUATION.md`](../../docs/EVALUATION.md).
+📖 **Step-by-step guide (requirements, verification, UI access):** [`docs/EVALUATION.md`](../../docs/EVALUATION.md).
 
-## Postgres externo
+## External Postgres
 
 ```bash
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 \
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
   --set postgresql.enabled=false \
   --set externalDatabase.dsn="postgres://user:pass@rds-host:5432/leloir?sslmode=require"
 ```
-
-> Draft — revisor: Antigravity. Ver `IMPLEMENTATION_PLAN.md`.

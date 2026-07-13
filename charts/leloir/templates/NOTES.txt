@@ -1,14 +1,14 @@
-Leloir — governance control plane for AI agents — instalado como "{{ .Release.Name }}".
+Leloir — governance control plane for AI agents — installed as "{{ .Release.Name }}".
 
-Perfil: {{ .Values.profile }}
+Profile: {{ .Values.profile }}
 {{- if .Values.postgresql.enabled }}
-Postgres: bundled (pgvector). ⚠ password default — override postgresql.auth.password en prod.
+Postgres: bundled (pgvector). ⚠ default password — override postgresql.auth.password in prod.
 {{- else }}
-Postgres: EXTERNO (externalDatabase.dsn / existingSecret).
+Postgres: EXTERNAL (externalDatabase.dsn / existingSecret).
 {{- end }}
-Licencia: {{ if or .Values.license.key .Values.license.existingSecret }}presente → features licenciadas habilitadas en runtime (validación cripto: futura){{ else }}AUSENTE → tier OSS (gateway L7 + budgets + RBAC + dashboards){{ end }}
+License: {{ if or .Values.license.key .Values.license.existingSecret }}present → licensed features enabled in runtime (crypto validation: future){{ else }}ABSENT → OSS tier (gateway L7 + budgets + RBAC + dashboards){{ end }}
 
-Componentes:
+Components:
   · Control plane  → svc/{{ include "leloir.controlplane.fullname" . }} (:80)
   {{- if .Values.gateway.enabled }}
   · MCP Gateway    → svc/{{ include "leloir.gateway.fullname" . }} (:8082)
@@ -20,7 +20,7 @@ Componentes:
   · Webhook rcvr   → svc/{{ include "leloir.receiver.fullname" . }} (:8081)  (Alertmanager → Leloir)
   {{- end }}
 
-Acceso:
+Access:
 {{- if .Values.gateway_api.enabled }}
   HTTPRoute → https://{{ .Values.gateway_api.host }}
 {{- else if .Values.ingress.enabled }}
@@ -29,5 +29,5 @@ Acceso:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "leloir.controlplane.fullname" . }} 8080:80
 {{- end }}
 
-Verificá:  kubectl -n {{ .Release.Namespace }} get pods
-Docs:      https://github.com/villadalmine/leloir
+Verify:  kubectl -n {{ .Release.Namespace }} get pods
+Docs:    https://github.com/villadalmine/leloir
