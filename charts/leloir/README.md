@@ -41,19 +41,16 @@ license:
 
 ## Evaluación Segura (Sandbox con vcluster)
 
-Recomendamos usar [vcluster](https://www.vcluster.com/) para probar Leloir sin ensuciar tu cluster principal. Esto levanta un plano de control efímero 100% aislado:
+Recomendamos usar [vcluster](https://www.vcluster.com/) para probar Leloir sin ensuciar tu cluster principal — un plano de control efímero 100% aislado, destruible en segundos:
 
 ```bash
-# 1. Crear un cluster virtual efímero
-vcluster create leloir-sandbox -n vcluster-leloir --connect
-
-# 2. Instalar Leloir dentro del sandbox
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 --namespace leloir-system --create-namespace --set profile=local
-
-# 3. Destruir el sandbox cuando termines (sin dejar rastro)
-vcluster disconnect
-vcluster delete leloir-sandbox -n vcluster-leloir
+vcluster create leloir-sandbox -n vcluster-leloir --connect                        # 1. sandbox efímero
+helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.0 \
+  --namespace leloir-system --create-namespace --set profile=local                 # 2. instalar Leloir
+vcluster delete leloir-sandbox -n vcluster-leloir                                   # 3. destruir sin rastro
 ```
+
+📖 **Guía paso a paso (requisitos, verificación, acceso a la UI):** [`docs/EVALUATION.md`](../../docs/EVALUATION.md).
 
 ## Postgres externo
 

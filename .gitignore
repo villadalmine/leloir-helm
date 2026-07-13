@@ -1,3 +1,6 @@
 
 # Helm vendored subchart tarballs (traer con: helm dependency build)
 charts/*/charts/*.tgz
+
+# Doc interno de planificación (no va al repo público)
+IMPLEMENTATION_PLAN.md
