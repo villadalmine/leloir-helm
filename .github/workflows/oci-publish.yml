@@ -1,0 +1,36 @@
+name: Publish OCI Chart to GHCR
+
+# Publica el chart como artefacto OCI en GHCR (además del repo gh-pages de
+# release.yml). Usa el GITHUB_TOKEN de Actions (packages: write) — no requiere
+# un PAT personal. La visibilidad del package se setea una sola vez en GHCR
+# (public) para permitir `helm install` anónimo.
+on:
+  push:
+    branches: [main]
+    paths: ['charts/**']
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package & push chart (OCI)
+        run: |
+          cd charts/leloir
+          helm dependency build
+          helm package .
+          CHART_TGZ=$(ls leloir-*.tgz | head -1)
+          echo "Pushing $CHART_TGZ → oci://ghcr.io/${{ github.repository_owner }}"
+          helm push "$CHART_TGZ" "oci://ghcr.io/${{ github.repository_owner }}"
