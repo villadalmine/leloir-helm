@@ -41,21 +41,21 @@ spec:
               type: object
               properties:
 
-                # ── Camino compiled-in (M7.11): spec.type + harness ──────────
+                # ── Compiled-in path (M7.11): spec.type + harness ────────────
                 type:
                   type: string
                   description: >-
-                    Adapter compilado a reconciliar (leloir-agent | holmesgpt |
+                    Compiled adapter to reconcile (leloir-agent | holmesgpt |
                     openaicompat | minimal | ollama | claudecode | scenario).
-                    Con type, el control plane (re)registra el agente COMPLETO
-                    desde este CRD (harness/modelConfig/customConfig/A2A).
-                    Sin type, aplica el camino sidecar (adapter.image, M5).
+                    With type, the control plane (re)registers the ENTIRE agent
+                    from this CRD (harness/modelConfig/customConfig/A2A).
+                    Without type, the sidecar path applies (adapter.image, M5).
                 modelConfig:
                   type: object
                   description: >-
-                    LLM del agente. SIN apiKey inline a propósito — la
-                    credencial viene de harness.credentials.from (llmBroker =
-                    key del flagship, D12) o del entorno del deployment.
+                    Agent's LLM. Purposely WITHOUT inline apiKey — the
+                    credential comes from harness.credentials.from (llmBroker =
+                    flagship key, D12) or the deployment environment.
                   properties:
                     provider: {type: string}
                     model: {type: string}
@@ -118,16 +118,16 @@ spec:
                 harness:
                   type: object
                   description: >-
-                    El harness agéntico declarativo (spec-m16, D5-A): persona,
-                    loop, refs de tools/memoria, modelo (ModelProvider) y origen
-                    de credencial. Donde harness y customConfig declaran la
-                    misma perilla, HARNESS GANA. Con spec.type el control
-                    plane reconcilia el agente COMPLETO desde este CRD
-                    (M7.11 ✅ 07/07) — el CRD-path es operativo.
+                    The declarative agentic harness (spec-m16, D5-A): persona,
+                    loop, tool/memory refs, model (ModelProvider), and credential
+                    origin. Where harness and customConfig declare the same knob,
+                    HARNESS WINS. With spec.type the control plane reconciles
+                    the ENTIRE agent from this CRD (M7.11 ✅ 07/07) — the CRD-path
+                    is operative.
                   properties:
                     systemPrompt:
                       type: string
-                      description: Persona; el answer-contract del adapter se appendea SIEMPRE.
+                      description: Persona; the adapter's answer-contract is ALWAYS appended.
                     reasoning:
                       type: string
                       enum: [react]
@@ -157,7 +157,7 @@ spec:
                         server: {type: string}
                     model:
                       type: string
-                      description: Ref a ModelProvider.models[].id (pricing/límites del catálogo).
+                      description: Ref to ModelProvider.models[].id (catalog limits/pricing).
                     credentials:
                       type: object
                       properties:
@@ -314,10 +314,10 @@ spec:
             status:
               type: object
               properties:
-                # RBAC posture (13.16, D11): la SA EFECTIVA del agente sondeada
-                # con SubjectAccessReviews al reconciliar. Visibilidad donde no
-                # hay enforcement (self-deployed); drift-detection donde lo hay
-                # (un agente contenido debe leer "namespaced").
+                # RBAC posture (13.16, D11): the agent's EFFECTIVE SA probed
+                # via SubjectAccessReviews on reconcile. Visibility where there
+                # is no enforcement (self-deployed); drift-detection where there is
+                # (a contained agent must read "namespaced").
                 rbacPosture:
                   type: object
                   properties:
@@ -330,12 +330,12 @@ spec:
                     secrets: {type: boolean}
                     write: {type: boolean}
                     checkedAt: {type: string}
-                # Governance scorecard (spec-m17.2): qué seams gobierna Leloir
-                # para ESTE agente — la respuesta honesta (D9), computada de la
-                # config declarada. El control plane la escribe al reconciliar.
+                # Governance scorecard (spec-m17.2): which governance seams Leloir
+                # binds for THIS agent — the honest answer (D9), computed from
+                # the declared config. The control plane writes it on reconcile.
                 scorecard:
                   type: object
-                  description: Qué seams de governance bindean para este agente.
+                  description: Which governance seams bind for this agent.
                   properties:
                     llm:     {type: string, description: "enforced | byo-key | unmetered"}
                     tools:   {type: string, description: "gateway | none"}

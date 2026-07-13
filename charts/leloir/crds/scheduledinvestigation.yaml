@@ -1,7 +1,7 @@
-# ScheduledInvestigation — investigación proactiva por cron (spec-m16, D8).
-# El equivalente GOBERNADO del ScheduledHealthCheck del Holmes operator.
-# El scheduler corre en el control plane (granularidad de minuto, sin pods
-# por corrida); cada disparo crea una investigación por el pipeline estándar.
+# ScheduledInvestigation — proactive cron-based investigation (spec-m16, D8).
+# The GOVERNED equivalent of the Holmes operator ScheduledHealthCheck.
+# The scheduler runs in the control plane (minute granularity, no pods
+# per run); each trigger creates an Investigation through the standard pipeline.
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -48,14 +48,14 @@ spec:
               properties:
                 schedule:
                   type: string
-                  description: Cron estándar de 5 campos (ej. "0 * * * *").
+                  description: Standard 5-field cron (e.g. "0 * * * *").
                 enabled:
                   type: boolean
-                  description: false pausa el schedule (default true).
+                  description: false pauses the schedule (default true).
                 template:
                   type: object
                   required: [query]
-                  description: Spec de la Investigation a disparar en cada corrida.
+                  description: Spec of the Investigation to trigger on each run.
                   properties:
                     query: {type: string}
                     agentName: {type: string}

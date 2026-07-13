@@ -34,8 +34,8 @@ spec:
       affinity: {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-        # Esperar a Postgres antes de arrancar → arranque limpio sin CrashLoop por
-        # orden (el control plane necesita la DB al iniciar). busybox, tiny+público.
+        # Wait for Postgres before starting → clean startup without CrashLoop due to
+        # ordering (the control plane needs the DB at startup). busybox, tiny+public.
         - name: wait-for-db
           image: busybox:1.36
           command:
@@ -97,10 +97,10 @@ spec:
                   name: {{ .Values.auth.oidc.existingSecret }}
                   key: clientSecret
             {{- end }}
-          # readiness = /healthz (server up + DB): el pod está listo para servir la
-          # API/UI (registrar agentes, config). /readyz exige un agente registrado
-          # ("listo para investigar") — no sirve como pod-readiness porque un
-          # install fresco no tiene agentes y el Service no rutearía (chicken-and-egg).
+          # readiness = /healthz (server up + DB): the pod is ready to serve the
+          # API/UI (register agents, config). /readyz demands a registered agent
+          # ("ready to investigate") — cannot be used as pod-readiness because a
+          # fresh install has no agents and the Service wouldn't route (chicken-and-egg).
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             initialDelaySeconds: 5
