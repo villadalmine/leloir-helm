@@ -39,6 +39,22 @@ license:
 | `hardening.mtls.enabled` | `false` | mTLS SPIFFE (Mission Critical; requiere Cilium) |
 | `rag.enabled` / `anomaly.*` | on | features Team (runtime las gatea por licencia) |
 
+## Evaluación Segura (Sandbox con vcluster)
+
+Recomendamos usar [vcluster](https://www.vcluster.com/) para probar Leloir sin ensuciar tu cluster principal. Esto levanta un plano de control efímero 100% aislado:
+
+```bash
+# 1. Crear un cluster virtual efímero
+vcluster create leloir-sandbox -n vcluster-leloir --connect
+
+# 2. Instalar Leloir dentro del sandbox
+helm install leloir oci://ghcr.io/villadalmine/leloir-helm --namespace leloir-system --create-namespace --set profile=local
+
+# 3. Destruir el sandbox cuando termines (sin dejar rastro)
+vcluster disconnect
+vcluster delete leloir-sandbox -n vcluster-leloir
+```
+
 ## Postgres externo
 
 ```bash
