@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-controlplane
+spec:
+  replicas: {{ .Values.controlPlane.replicas }}
+  selector:
+    matchLabels:
+      app: leloir-controlplane
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "leloir.labels" . | nindent 8 }}
+        app: leloir-controlplane
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/controlplane-config.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ if .Values.rbac.create }}{{ include "leloir.controlplane.fullname" . }}{{ else }}default{{ end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: controlplane
+          image: {{ include "leloir.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--config=/etc/leloir/config.yaml"]
+          ports:
+            - {containerPort: 8080, name: http}
+            {{- if .Values.controlPlane.internalListener.enabled }}
+            - {containerPort: {{ .Values.controlPlane.internalListener.port }}, name: internal}
+            {{- end }}
+            - {containerPort: 9091, name: metrics}
+          env:
+            - name: LELOIR_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leloir.dsnSecret" . }}
+                  key: {{ include "leloir.dsnSecretKey" . }}
+            {{- if eq .Values.profile "local" }}
+            - name: LELOIR_THRASH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leloir.fullname" . }}-thrash-token
+                  key: token
+            {{- end }}
+            {{- if .Values.license.key }}
+            - name: LELOIR_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leloir.fullname" . }}-license
+                  key: license.key
+            {{- else if .Values.license.existingSecret }}
+            - name: LELOIR_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.license.existingSecret }}
+                  key: {{ .Values.license.existingSecretKey }}
+            {{- end }}
+            {{- if and .Values.auth.oidc.enabled .Values.auth.oidc.existingSecret }}
+            - name: LELOIR_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.oidc.existingSecret }}
+                  key: clientSecret
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8080}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources: {{- toYaml .Values.controlPlane.resources | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/leloir, readOnly: true}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "leloir.controlplane.fullname" . }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-controlplane
+spec:
+  type: ClusterIP
+  selector:
+    app: leloir-controlplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {name: http, port: 80, targetPort: 8080}
+    - {name: metrics, port: 9091, targetPort: 9091}
+{{- if .Values.controlPlane.internalListener.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}-internal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-controlplane
+spec:
+  type: ClusterIP
+  selector:
+    app: leloir-controlplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {name: internal, port: {{ .Values.controlPlane.internalListener.port }}, targetPort: {{ .Values.controlPlane.internalListener.port }}}
+{{- end }}

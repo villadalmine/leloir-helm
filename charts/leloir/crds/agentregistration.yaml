@@ -1,0 +1,376 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agentregistrations.leloir.dev
+  annotations:
+    leloir.dev/sdk-version: "1.0.0"
+    leloir.dev/since-milestone: "M1"
+spec:
+  group: leloir.dev
+  names:
+    kind: AgentRegistration
+    listKind: AgentRegistrationList
+    plural: agentregistrations
+    singular: agentregistration
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Agent
+          type: string
+          jsonPath: .spec.adapter.name
+        - name: Image
+          type: string
+          jsonPath: .spec.adapter.image
+        - name: Health
+          type: string
+          jsonPath: .status.health
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              properties:
+
+                # ── Camino compiled-in (M7.11): spec.type + harness ──────────
+                type:
+                  type: string
+                  description: >-
+                    Adapter compilado a reconciliar (leloir-agent | holmesgpt |
+                    openaicompat | minimal | ollama | claudecode | scenario).
+                    Con type, el control plane (re)registra el agente COMPLETO
+                    desde este CRD (harness/modelConfig/customConfig/A2A).
+                    Sin type, aplica el camino sidecar (adapter.image, M5).
+                modelConfig:
+                  type: object
+                  description: >-
+                    LLM del agente. SIN apiKey inline a propósito — la
+                    credencial viene de harness.credentials.from (llmBroker =
+                    key del flagship, D12) o del entorno del deployment.
+                  properties:
+                    provider: {type: string}
+                    model: {type: string}
+                    endpoint: {type: string}
+                    maxTokensPerCall: {type: integer}
+
+                adapter:
+                  type: object
+                  required: [image]
+                  description: Container image that implements the AgentAdapter interface.
+                  properties:
+                    image:
+                      type: string
+                      description: >
+                        Container image reference, e.g.
+                        ghcr.io/leloir/adapter-holmesgpt:v1.4.2
+                    imagePullPolicy:
+                      type: string
+                      enum: [Always, IfNotPresent, Never]
+                      default: IfNotPresent
+                    resources:
+                      type: object
+                      description: Kubernetes resource requests and limits.
+                      properties:
+                        requests:
+                          type: object
+                          properties:
+                            cpu:
+                              type: string
+                              default: "100m"
+                            memory:
+                              type: string
+                              default: "128Mi"
+                        limits:
+                          type: object
+                          properties:
+                            cpu:
+                              type: string
+                              default: "500m"
+                            memory:
+                              type: string
+                              default: "512Mi"
+
+                modelConfigRef:
+                  type: string
+                  description: >
+                    Name of the LLM provider configured in the LLM Gateway
+                    (e.g. "azure-openai-corp"). The gateway passes credentials
+                    and endpoint details to the adapter.
+                  default: "default"
+
+                customConfig:
+                  type: object
+                  description: >
+                    Adapter-specific configuration passed verbatim to
+                    AgentAdapter.Configure() as Config.CustomConfig.
+                    Schema is adapter-specific and not validated here.
+                  x-kubernetes-preserve-unknown-fields: true
+
+                harness:
+                  type: object
+                  description: >-
+                    El harness agéntico declarativo (spec-m16, D5-A): persona,
+                    loop, refs de tools/memoria, modelo (ModelProvider) y origen
+                    de credencial. Donde harness y customConfig declaran la
+                    misma perilla, HARNESS GANA. Con spec.type el control
+                    plane reconcilia el agente COMPLETO desde este CRD
+                    (M7.11 ✅ 07/07) — el CRD-path es operativo.
+                  properties:
+                    systemPrompt:
+                      type: string
+                      description: Persona; el answer-contract del adapter se appendea SIEMPRE.
+                    reasoning:
+                      type: string
+                      enum: [react]
+                    skills:
+                      type: array
+                      items: {type: string}
+                    loop:
+                      type: object
+                      properties:
+                        maxIterations: {type: integer}
+                        maxToolCalls: {type: integer}
+                        resultMaxChars: {type: integer}
+                        historyMaxChars: {type: integer}
+                    tools:
+                      type: array
+                      items:
+                        type: object
+                        required: [server]
+                        properties:
+                          server: {type: string}
+                          allow:
+                            type: array
+                            items: {type: string}
+                    memory:
+                      type: object
+                      properties:
+                        server: {type: string}
+                    model:
+                      type: string
+                      description: Ref a ModelProvider.models[].id (pricing/límites del catálogo).
+                    credentials:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          enum: [llmBroker, ownKey]
+                        secretRef:
+                          type: object
+                          properties:
+                            name: {type: string}
+                            key: {type: string}
+                    llm:
+                      type: object
+                      properties:
+                        extraHeaders:
+                          type: object
+                          additionalProperties: {type: string}
+                        retry:
+                          type: object
+                          properties:
+                            attempts: {type: integer}
+                            backoffSeconds: {type: number}
+
+                containment:
+                  type: object
+                  description: >
+                    Modo 2 (spec-m13.4): govern a BLACK-BOX third party by how we
+                    deploy it, not by its cooperation. When runtime is
+                    platform-provisioned, Leloir emits scoped RBAC + an egress-lock
+                    CiliumNetworkPolicy + env forcing its LLM/tools through us.
+                  properties:
+                    runtime:
+                      type: string
+                      enum: ["self-deployed", "platform-provisioned"]
+                      default: self-deployed
+                    egressAllowlist:
+                      type: array
+                      items: {type: string}
+                      description: Extra hosts/CIDRs the agent may reach; empty = only the platform.
+                    rbacScope:
+                      type: string
+                      description: '"none" | "read-only" | a ClusterRole name to bind.'
+                    forceLLMGateway:
+                      type: boolean
+                      description: Inject env so the agent's LLM goes through our gateway.
+                    forceMCPFacade:
+                      type: boolean
+                      description: Inject env so the agent's tools go through our facade.
+                    deploymentName:
+                      type: string
+                      description: >
+                        The agent's existing Deployment (labeled
+                        leloir.dev/contained-agent) that Leloir patches with the
+                        scoped ServiceAccount + forced env. Empty = only RBAC +
+                        egress-lock are applied (perimeter containment).
+                    deploymentContainer:
+                      type: string
+                      description: Container in deploymentName to inject env into; empty = the first.
+                    llmKeyFrom:
+                      type: string
+                      enum: ["", "llmBroker"]
+                      description: >
+                        "llmBroker" provisions the TENANT's virtual key to the
+                        contained agent: the key Secret is synced from the broker
+                        namespace into the agent's namespace and injected as
+                        OPENAI_API_KEY by secretKeyRef. Completes the forced LLM
+                        path (metered + budgeted); the key value never passes
+                        through Leloir. Empty = the agent must already hold a
+                        valid tenant key.
+
+                nativeGuardrails:
+                  type: array
+                  description: >
+                    Modo 3 (spec-m13.5): seams the third party guards ITSELF.
+                    Leloir marks those seams "native" (covered, sourced from the
+                    agent, not us) and contains the rest — honest about the source.
+                  items:
+                    type: object
+                    required: [seam]
+                    properties:
+                      seam:
+                        type: string
+                        enum: ["tools", "llm", "rbac"]
+                      guarantee:
+                        type: string
+                        description: What the native guardrail guarantees (e.g. "read-only").
+                      evidence:
+                        type: string
+                        description: How it was verified (a config flag, the agent's docs).
+
+                canInvoke:
+                  type: array
+                  description: >
+                    Agent-to-Agent policy: list of agent names this agent is
+                    globally authorized to invoke as sub-agents.
+                    Wildcard "*" allows invoking any registered agent.
+                    Combined with AlertRoute.team as defense in depth.
+                    Default: ["*"] (permissive, operators tighten as needed).
+                  items:
+                    type: string
+                  default: ["*"]
+
+                cannotInvoke:
+                  type: array
+                  description: >
+                    Explicit deny list that overrides canInvoke.
+                    Even if canInvoke is "*", agents in cannotInvoke are never
+                    invocable by this agent under any circumstances.
+                  items:
+                    type: string
+                  default: []
+
+                supportsBeingInvoked:
+                  type: boolean
+                  description: >
+                    If true, this agent can be a sub-agent target in A2A calls.
+                    If false, other agents cannot invoke this one.
+                  default: true
+
+                healthCheck:
+                  type: object
+                  description: Health check configuration.
+                  properties:
+                    intervalSeconds:
+                      type: integer
+                      minimum: 10
+                      maximum: 600
+                      default: 30
+                    timeoutSeconds:
+                      type: integer
+                      minimum: 1
+                      maximum: 30
+                      default: 5
+                    failureThreshold:
+                      type: integer
+                      minimum: 1
+                      maximum: 10
+                      default: 3
+
+                secretsRef:
+                  type: object
+                  description: >
+                    Reference to a Kubernetes Secret mounted read-only into
+                    the adapter container at Config.SecretsPath.
+                    Most adapters do NOT need this — credentials flow via
+                    the MCP Gateway and LLM Gateway.
+                  properties:
+                    name:
+                      type: string
+                    mountPath:
+                      type: string
+                      default: "/var/run/leloir/secrets"
+
+            status:
+              type: object
+              properties:
+                # RBAC posture (13.16, D11): la SA EFECTIVA del agente sondeada
+                # con SubjectAccessReviews al reconciliar. Visibilidad donde no
+                # hay enforcement (self-deployed); drift-detection donde lo hay
+                # (un agente contenido debe leer "namespaced").
+                rbacPosture:
+                  type: object
+                  properties:
+                    serviceAccount: {type: string}
+                    verdict:
+                      type: string
+                      description: "cluster-wide | over-privileged | namespaced | none | unknown"
+                    clusterWide: {type: boolean}
+                    crossNamespace: {type: boolean}
+                    secrets: {type: boolean}
+                    write: {type: boolean}
+                    checkedAt: {type: string}
+                # Governance scorecard (spec-m17.2): qué seams gobierna Leloir
+                # para ESTE agente — la respuesta honesta (D9), computada de la
+                # config declarada. El control plane la escribe al reconciliar.
+                scorecard:
+                  type: object
+                  description: Qué seams de governance bindean para este agente.
+                  properties:
+                    llm:     {type: string, description: "enforced | byo-key | unmetered"}
+                    tools:   {type: string, description: "gateway | none"}
+                    rbac:    {type: string, description: "gateway-creds | observed"}
+                    trigger: {type: string, description: "routed"}
+                    outcome: {type: string, description: "recorded | correlated"}
+                health:
+                  type: string
+                  enum: [healthy, unhealthy, degraded, unknown]
+                lastHealthCheckTime:
+                  type: string
+                  format: date-time
+                healthMessage:
+                  type: string
+                adapterVersion:
+                  type: string
+                sdkVersion:
+                  type: string
+                capabilities:
+                  type: array
+                  items:
+                    type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string

@@ -1,0 +1,52 @@
+{{- if .Values.gateway_api.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "leloir.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ required "gateway_api.parentRefName is required when gateway_api.enabled" .Values.gateway_api.parentRefName }}
+      {{- if .Values.gateway_api.parentRefNamespace }}
+      namespace: {{ .Values.gateway_api.parentRefNamespace }}
+      {{- end }}
+  hostnames:
+    - {{ .Values.gateway_api.host | quote }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      backendRefs:
+        - name: {{ include "leloir.controlplane.fullname" . }}
+          port: 80
+{{- else if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "leloir.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "leloir.controlplane.fullname" . }}
+                port:
+                  number: 80
+{{- end }}

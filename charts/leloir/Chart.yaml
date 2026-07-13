@@ -1,0 +1,31 @@
+apiVersion: v2
+name: leloir
+description: |
+  Leloir — the open-source governance control plane for AI agents on Kubernetes.
+  Bring your own agent, we bring the guardrails: per-tenant budgets, HITL, A2A
+  guards, audit, and the MCP Gateway as the single governed path to tools.
+type: application
+# Chart version — bump on any chart change.
+version: 0.1.0
+# The Leloir version this chart deploys (image tag default).
+appVersion: "0.1.0"
+home: https://leloir.cybercirujas.club
+sources:
+  - https://github.com/villadalmine/leloir
+keywords:
+  - ai
+  - agents
+  - governance
+  - kubernetes
+  - incident-response
+  - mcp
+maintainers:
+  - name: Leloir
+    url: https://github.com/villadalmine/leloir
+# Postgres (with pgvector) as an optional bundled dependency. Disable it
+# (postgresql.enabled=false) to point at an external Postgres via a DSN.
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: postgresql.enabled

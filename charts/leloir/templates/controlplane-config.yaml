@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    profile: {{ .Values.profile }}
+    api:
+      httpAddr: ":8080"
+      {{- if .Values.controlPlane.internalListener.enabled }}
+      internalAddr: ":{{ .Values.controlPlane.internalListener.port }}"
+      {{- end }}
+    database:
+      driver: postgres
+      # DSN injected via LELOIR_DATABASE_DSN (Secret) at runtime.
+    auth:
+      {{- if .Values.auth.oidc.enabled }}
+      mode: oidc
+      oidc:
+        issuer: {{ .Values.auth.oidc.issuer | quote }}
+        clientId: {{ .Values.auth.oidc.clientID | quote }}
+        # clientSecret via LELOIR_OIDC_CLIENT_SECRET (Secret).
+      {{- else }}
+      mode: single-user
+      singleUser:
+        username: {{ .Values.auth.singleUser.username | quote }}
+      {{- end }}
+    mcpGateway:
+      {{- if .Values.gateway.enabled }}
+      endpoint: "http://{{ include "leloir.gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8082"
+      {{- end }}
+    anomaly:
+      spendVelocityUSD: {{ .Values.anomaly.spendVelocityUSD }}
+      autoReleaseCooldownMinutes: {{ .Values.anomaly.autoReleaseCooldownMinutes }}
+      # thrashToken via LELOIR_THRASH_TOKEN (Secret).
+    {{- if .Values.rag.enabled }}
+    rag:
+      embeddingModel: {{ .Values.rag.embeddingModel | quote }}
+      embeddingDim: {{ .Values.rag.embeddingDim }}
+      distanceThreshold: {{ .Values.rag.distanceThreshold }}
+      retentionDays: {{ .Values.rag.retentionDays }}
+    {{- end }}
+    observability:
+      metrics: {enabled: true, addr: ":9091"}
+      serviceName: leloir-controlplane

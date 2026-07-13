@@ -1,0 +1,149 @@
+# Leloir — values.yaml
+#
+# UN SOLO chart, license-ready (open-core). Todo lo OSS está PRENDIDO por defecto
+# y es gratis. Las features licenciadas (Team / Mission Critical) se gatean por la
+# presencia de `license.key` en los Secrets — la VALIDACIÓN criptográfica es
+# futura; hoy el chart sólo transporta la llave. Ver .agents/AGENTS.md (topología).
+
+# ─── Perfil ───────────────────────────────────────────────────────────────────
+# local     → seguro-para-probar: genera Secrets nativos (token thrash, admin
+#             estático), Postgres interno, OIDC OFF. Ideal Minikube/Kind.
+# corporate → modo seguro: requiere OIDC + Postgres externo/Vault inyectados.
+profile: local
+
+# ─── Licencia (open-core) ─────────────────────────────────────────────────────
+license:
+  # Vacío = tier OSS (gateway L7 + budgets + RBAC + dashboards). Con una llave
+  # válida se habilitan las features licenciadas en RUNTIME (el core lo gatea al
+  # arrancar; la validación cripto es futura). Se inyecta como env LELOIR_LICENSE_KEY.
+  key: ""
+  # Referenciar un Secret existente en vez de poner la llave en values (recomendado).
+  existingSecret: ""
+  existingSecretKey: "license.key"
+
+# ─── Imágenes ─────────────────────────────────────────────────────────────────
+image:
+  repository: ghcr.io/villadalmine/leloir-controlplane
+  tag: ""                 # vacío = usa .Chart.appVersion
+  pullPolicy: IfNotPresent
+# Las imágenes son privadas por ahora — el usuario inyecta sus imagePullSecrets.
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# El subchart Bitnami bloquea imágenes no-Bitnami (usamos pgvector/pgvector para
+# tener la extensión vector) → hay que permitirlo explícitamente.
+global:
+  security:
+    allowInsecureImages: true
+
+# ─── Base de datos (Postgres + pgvector) ──────────────────────────────────────
+# Subchart de Bitnami. enabled:true levanta un Postgres 16 con pgvector.
+postgresql:
+  enabled: true
+  image:
+    repository: pgvector/pgvector
+    tag: pg16
+  auth:
+    username: leloir
+    database: leloir
+    # Password del Postgres bundled. El default es usable para probar (profile:
+    # local); OVERRIDEALO en prod. El chart arma el DSN con este mismo valor.
+    password: "leloir-change-me"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+# Si postgresql.enabled=false, inyectá un DSN a un Postgres externo (ej. RDS):
+externalDatabase:
+  dsn: ""                 # postgres://user:pass@host:5432/leloir?sslmode=require
+  existingSecret: ""
+  existingSecretKey: "dsn"
+
+# ─── Control plane ────────────────────────────────────────────────────────────
+controlPlane:
+  replicas: 1
+  resources:
+    requests: {cpu: "100m", memory: "256Mi"}
+    limits: {cpu: "1", memory: "1Gi"}
+  # Listener interno separado para /internal/* (hardening spec-m21 21.6): no se
+  # expone por el Ingress/HTTPRoute; se cierra con una CNP al gateway si Cilium.
+  internalListener:
+    enabled: true
+    port: 8090
+
+# ─── MCP Gateway (el único camino a las tools) ────────────────────────────────
+gateway:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: {cpu: "50m", memory: "128Mi"}
+    limits: {cpu: "500m", memory: "512Mi"}
+
+# ─── Memory-as-an-MCP-Server (spec-m18) ───────────────────────────────────────
+memoryMcp:
+  enabled: true
+
+# ─── Webhook receiver (Alertmanager/Slack/… → /api/v1/alerts) ─────────────────
+webhookReceiver:
+  enabled: true
+
+# ─── Features de gobierno (OSS on-by-default; runtime las gatea por licencia) ──
+# El chart las configura; si el tier no las incluye, el core las desactiva al
+# arrancar (con un log). NO rompen si están "prendidas" sin licencia.
+rag:                        # RAG episódico (Team)
+  enabled: true
+  embeddingModel: "local"   # local = cero deps; alias litellm = hosted (con key)
+  embeddingDim: 256
+  distanceThreshold: 0.25
+  retentionDays: 90
+anomaly:                    # anomalía → quarantine (Team)
+  spendVelocityUSD: 0.50
+  autoReleaseCooldownMinutes: 30
+
+# ─── Hardening de deployment (Mission Critical — flags de chart, default OFF) ──
+# Estos SÍ son manifiestos separados (CNPs Cilium) que romperían un cluster sin
+# Cilium → apagados por defecto, se prenden en el tier Mission Critical.
+hardening:
+  mtls:
+    enabled: false          # mTLS SPIFFE sobre Postgres + memory-mcp (requiere Cilium mutual-auth)
+  networkPolicies:
+    enabled: false          # CNP ingress-lock (requiere Cilium)
+
+# ─── Exposición: Ingress estándar (default) o Gateway API HTTPRoute ───────────
+ingress:
+  enabled: true
+  className: ""             # nginx | traefik | ""
+  host: leloir.local
+  tls: []
+  annotations: {}
+# Gateway API (homelab). Si enabled, usá esto en vez del Ingress.
+gateway_api:
+  enabled: false
+  parentRefName: ""
+  parentRefNamespace: ""
+  host: leloir.local
+
+# ─── RBAC ─────────────────────────────────────────────────────────────────────
+rbac:
+  # cluster-wide watcher para Leloir (mira CRDs/pods de todos los ns); Role
+  # namespaced para litellm. create:false si el operador los gestiona aparte.
+  create: true
+
+# ─── Auth ─────────────────────────────────────────────────────────────────────
+auth:
+  # single-user (local) — un admin estático sin OIDC. Para corporate, OIDC.
+  mode: single-user
+  singleUser:
+    username: admin
+  oidc:
+    enabled: false
+    issuer: ""
+    clientID: ""
+    # clientSecret vía existingSecret (nunca en values).
+    existingSecret: ""
+
+# Nodo/scheduling (opcional; vacío = sin restricciones).
+nodeSelector: {}
+tolerations: []
+affinity: {}

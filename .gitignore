@@ -1,0 +1,3 @@
+
+# Helm vendored subchart tarballs (traer con: helm dependency build)
+charts/*/charts/*.tgz

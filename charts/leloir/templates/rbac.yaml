@@ -1,0 +1,54 @@
+{{- if .Values.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+---
+{{/*
+Cluster-wide watcher: Leloir reconciles its CRDs across all namespaces (the
+tenant is authoritative per namespace) and reads pods/events for change-context.
+Read-only on cluster resources — Leloir governs DECLARATIVELY, never mutates
+foreign runtime (D-BB5).
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["leloir.dev"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["leloir.dev"]
+    resources: ["*/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "events", "services", "namespaces", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  # SubjectAccessReviews for the RBAC-posture check (spec-m13.16).
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "leloir.controlplane.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "leloir.controlplane.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

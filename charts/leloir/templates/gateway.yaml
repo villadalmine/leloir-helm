@@ -1,0 +1,94 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "leloir.gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+data:
+  gateway.yaml: |
+    listenAddr: ":8082"
+    egressPolicy: allowlist
+    controlPlaneUrl: "http://{{ include "leloir.controlplane.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+    observability: {metrics: {enabled: true}}
+    antiThrashing:
+      enabled: true
+      maxConsecutiveErrors: 5
+      tripsToQuarantine: 5
+      windowSeconds: 300
+      {{- if .Values.controlPlane.internalListener.enabled }}
+      anomalyEndpoint: "http://{{ include "leloir.controlplane.fullname" . }}-internal.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.controlPlane.internalListener.port }}/internal/anomaly"
+      {{- end }}
+    servers: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "leloir.gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-mcp-gateway
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      app: leloir-mcp-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "leloir.labels" . | nindent 8 }}
+        app: leloir-mcp-gateway
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gateway
+          image: {{ include "leloir.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/leloir-mcp-gateway"]
+          args: ["--config=/etc/leloir/gateway.yaml"]
+          ports:
+            - {containerPort: 8082, name: http}
+          {{- if eq .Values.profile "local" }}
+          env:
+            - name: LELOIR_THRASH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leloir.fullname" . }}-thrash-token
+                  key: token
+          {{- end }}
+          readinessProbe:
+            httpGet: {path: /metrics, port: 8082}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources: {{- toYaml .Values.gateway.resources | nindent 12 }}
+          volumeMounts:
+            - {name: cfg, mountPath: /etc/leloir, readOnly: true}
+      volumes:
+        - name: cfg
+          configMap:
+            name: {{ include "leloir.gateway.fullname" . }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leloir.gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-mcp-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: leloir-mcp-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {name: http, port: 8082, targetPort: 8082}
+{{- end }}
