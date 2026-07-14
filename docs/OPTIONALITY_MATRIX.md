@@ -28,10 +28,10 @@ tool). Nothing about memory is hardcoded.
 |---|---|---|---|
 | **Native: `leloir-memory-mcp`** (spec-m18) | Built-in MCP server, per-tenant remember/recall/forget | ✅ Proven | 🟡 Without it, agents lose durable key/value recall across calls |
 | **Native: RAG episodic** (spec-m22, pgvector) | Built-in; captures alert→cause→fix, recalls by cosine similarity as an auto-runbook | ✅ Proven | 🟡 Without it, no "we've seen this incident before" auto-runbook |
-| **Honcho** (Plastic Labs) | External; via `MCPServer` CRD or adapter. Peer-centric (peer = human/agent/service), sessions, background "deriver" reasoning, natural-language dialectic queries | 🟡 Coded (deployed + capture proven live; dialectic is LLM-backed) | 🟢 None on the core — it's an *upgrade* for continuity/user-modeling |
-| **mem0** | External MCP/HTTP | 🗓 Planned (evaluate) | 🟢 None on core |
-| **Zep / Graphiti** | External; temporal knowledge graph | 🗓 Planned (evaluate) | 🟢 None on core |
-| **Letta (MemGPT)** | External; agent-managed memory OS | 🗓 Planned (evaluate) | 🟢 None on core |
+| **Honcho** (Plastic Labs) | External; via `MCPServer` CRD + `leloir-honcho-mcp` adapter (chart `memory.honcho.enabled`). Peer-centric, background deriver, NL dialectic | ✅ **MEASURED 4/4 (2026-07-14)** — recall HIT 330 ms, dialectic cites rule+incident, deriver 9–11 observations (free-tier models derive ZERO: it needs a strong model) | 🟢 None on the core — the *upgrade* for synthesis/continuity |
+| **mem0** | External HTTP | ⚠️ **MEASURED (2026-07-14): runs only patched** (8 blockers OOTB: unconditional neo4j, hardcoded models, no psycopg…). Recall HIT but it atomizes facts — the incident-id lands apart from the lesson | 🟢 None on core; not a recommendable default |
+| **Zep / Graphiti** | External; temporal knowledge graph | 🔴 Out for self-host — Community Edition deprecated (2026); platform is SaaS-only | 🟢 None on core |
+| **Letta (MemGPT)** | External; agent-managed memory OS | 🟡 **MEASURED (2026-07-14):** archival store/search sound via API (recall HIT), but the agent cannot reach its own archival in-chat even when asked (synthesis fail) | 🟢 None on core; fine for scratch memory, not synthesis |
 | **NO memory at all** | — | — | 🟡 **Degraded, not blocked.** Every investigation is still self-contained and correct; you lose cross-incident learning (auto-runbook) and cross-session continuity. The governance, budgets, RBAC, audit, containment all work identically. |
 
 **Why memory matters MOST for black-box agents (Modo 2):** a contained
