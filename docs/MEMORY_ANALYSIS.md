@@ -340,12 +340,20 @@ filled in as each backend is deployed in infra-ai (`make honcho|letta|mem0`).
 
 ### Live benchmark matrix (filled as deployed)
 
-| Operation | Honcho (v3.0.12) | Letta (0.16.8) | mem0 | Zep |
+| Operation | Honcho (v3.0.12) | Letta (0.16.8) | mem0 (OSS server) | Zep |
 |---|---|---|---|---|
-| CAPTURE | ✅ ~45 ms (deterministic write) | ✅ ~2.5 s (inline embed) | _pending deploy_ | n/a (CE deprecated) |
-| RECALL | ✅ HIT (warm) | ✅ HIT ~2 s (inv-001 top-1) | _pending_ | n/a |
-| SYNTHESIZE | ✅ ~14–19 s, correct | ✅ ~38 s (agent multi-step) | _pending_ | n/a |
-| DERIVE | ✅ w/ Sonnet 5 (7 observations) | n/a (agent self-edits, no bg deriver) | _pending_ | n/a |
+| CAPTURE | ✅ ~45 ms (deterministic write) | ✅ ~2.5 s (inline embed) | ⚠️ blocked (see below) | n/a (CE deprecated) |
+| RECALL | ✅ HIT (warm) | ✅ HIT ~2 s (inv-001 top-1) | ⚠️ blocked | n/a |
+| SYNTHESIZE | ✅ ~14–19 s, correct | ✅ ~38 s (agent multi-step) | n/a (returns memories, not NL) | n/a |
+| DERIVE | ✅ w/ Sonnet 5 (7 observations) | n/a (agent self-edits, no bg deriver) | n/a | n/a |
+
+**mem0 deployment finding (real):** deployed (API + Postgres), but the official
+`mem0/mem0-api-server:latest` image **does not bundle `psycopg`**, so the
+**pgvector** backend fails at startup (`ImportError: Neither 'psycopg' nor
+'psycopg2'`). mem0's default vector store is **Qdrant** — running it self-hosted
+with our Postgres would need a custom image (add psycopg) or deploying Qdrant as a
+4th component. This **confirms §5: mem0 is the heaviest of the three to self-host.**
+Role is ready (`make mem0`); switching it to Qdrant is a follow-up.
 
 **What the numbers say (Honcho vs Letta, both live-tested):**
 - **Honcho is lighter & faster.** CAPTURE is a ~45 ms deterministic write (embedding
