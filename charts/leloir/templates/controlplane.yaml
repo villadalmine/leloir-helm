@@ -97,6 +97,14 @@ spec:
                   name: {{ .Values.auth.oidc.existingSecret }}
                   key: clientSecret
             {{- end }}
+            {{- if and .Values.audit.streaming.endpoint .Values.audit.streaming.existingSecret }}
+            # SIEM streaming bearer (never in the ConfigMap).
+            - name: LELOIR_AUDIT_STREAM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.audit.streaming.existingSecret }}
+                  key: {{ .Values.audit.streaming.existingSecretKey }}
+            {{- end }}
           # readiness = /healthz (server up + DB): the pod is ready to serve the
           # API/UI (register agents, config). /readyz demands a registered agent
           # ("ready to investigate") — cannot be used as pod-readiness because a

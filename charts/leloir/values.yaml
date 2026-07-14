@@ -1,9 +1,9 @@
 # Leloir — values.yaml
 #
-# A SINGLE chart, license-ready (open-core). All OSS features are ENABLED by default
-# and free. Licensed features (Team / Mission Critical) are gated by the
-# presence of `license.key` in the Secrets — cryptographic VALIDATION is
-# planned for the future; today the chart only transports the key. See .agents/AGENTS.md (topology).
+# A SINGLE chart. The Leloir engine is 100% FREE and open-source — every
+# feature in this chart is enabled or enableable without any license. (A
+# commercial integrated dashboard is offered separately by the maintainers as
+# a CLIENT of the engine's public API; it does not gate anything here.)
 
 # ─── Profile ──────────────────────────────────────────────────────────────────
 # local     → safe-to-test: generates native Secrets (thrash token, static admin),
@@ -11,11 +11,12 @@
 # corporate → secure mode: requires OIDC + external Postgres/Vault injected.
 profile: local
 
-# ─── License (open-core) ──────────────────────────────────────────────────────
+# ─── License ──────────────────────────────────────────────────────────────────
+# The engine is fully free: no feature in this chart requires a key. This block
+# is kept for the OPTIONAL license scorecard (GET /api/v1/license) and for the
+# future commercial dashboard's own licensing — leaving it empty is the normal,
+# fully-functional install. Injected as LELOIR_LICENSE_KEY env var.
 license:
-  # Empty = OSS tier (gateway L7 + budgets + RBAC + dashboards). With a valid
-  # key, licensed features are enabled in RUNTIME (the core gates them at
-  # startup; crypto validation is future). Injected as LELOIR_LICENSE_KEY env var.
   key: ""
   # Reference an existing Secret instead of placing the key in values (recommended).
   existingSecret: ""
@@ -93,27 +94,41 @@ memoryMcp:
 webhookReceiver:
   enabled: true
 
-# ─── Governance features (OSS on-by-default; runtime gates them by license) ───
-# The chart configures them; if the tier doesn't include them, the core disables
-# them at startup (with a log). They DO NOT break if "enabled" without a license.
-rag:                        # Episodic RAG (Team)
+# ─── Governance features (all free, on by default) ────────────────────────────
+rag:                        # Episodic RAG (free)
   enabled: true
   embeddingModel: "local"   # local = zero deps; litellm alias = hosted (with key)
   embeddingDim: 256
   distanceThreshold: 0.25
   retentionDays: 90
-anomaly:                    # anomaly → quarantine (Team)
+anomaly:                    # anomaly → quarantine (free)
   spendVelocityUSD: 0.50
   autoReleaseCooldownMinutes: 30
 
-# ─── Deployment hardening (Mission Critical — chart flags, default OFF) ───────
+# ─── SIEM audit streaming (free) ──────────────────────────────────────────────
+# Forward every audit event (tool calls, approvals, budget, quarantine…) to an
+# external HTTP sink — a SIEM or a collector (vector/fluent-bit) in front of
+# one. FAIL-OPEN: a dead sink never blocks an investigation; the in-cluster
+# Postgres audit stays the source of truth. Bearer auth via the
+# LELOIR_AUDIT_STREAM_TOKEN env (set audit.streaming.existingSecret).
+audit:
+  streaming:
+    endpoint: ""            # empty = disabled
+    headers: {}             # extra static headers (e.g. X-Scope-OrgID)
+    batchSize: 64
+    flushInterval: 2s
+    existingSecret: ""      # Secret with key "token" → Authorization: Bearer
+    existingSecretKey: "token"
+
+# ─── Deployment hardening (chart flags, default OFF — requires Cilium) ────────
 # These ARE separate manifests (Cilium CNPs) that would break a cluster without
-# Cilium → off by default, enabled in the Mission Critical tier.
+# Cilium → off by default. Free like everything else; flip them ON when your
+# cluster runs Cilium (mtls additionally needs SPIRE mutual-auth enabled).
 hardening:
   mtls:
-    enabled: false          # SPIFFE mTLS over Postgres + memory-mcp (requires Cilium mutual-auth)
+    enabled: false          # SPIFFE mTLS on gateway→control-plane :8090 (requires Cilium mutual-auth/SPIRE)
   networkPolicies:
-    enabled: false          # Ingress-lock CNP (requires Cilium)
+    enabled: false          # Ingress-lock CNP on the internal listener (requires Cilium)
 
 # ─── Exposure: Standard Ingress (default) or Gateway API HTTPRoute ────────────
 ingress:

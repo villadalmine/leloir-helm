@@ -1,0 +1,51 @@
+# GitOps evaluation/deployment of Leloir via ArgoCD.
+#
+# Two objects:
+#   1. A repository Secret that teaches ArgoCD to pull the Helm chart from
+#      GHCR as OCI (anonymous — the chart and image are public).
+#   2. The Application itself: installs the chart with profile=local into
+#      leloir-system, auto-synced.
+#
+# NOTE (CRDs): the chart ships 10 cluster-scoped CRDs. Point the destination
+# at a cluster that does NOT already run Leloir — for evaluation, a vcluster
+# is the ideal target (see docs/EVALUATION.md): register the vcluster in
+# ArgoCD (`argocd cluster add`) and set `destination.name` accordingly.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: leloir-ghcr-oci
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: leloir-ghcr
+  url: ghcr.io/villadalmine
+  type: helm
+  enableOCI: "true"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: leloir
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/villadalmine
+    chart: leloir
+    targetRevision: 0.1.1
+    helm:
+      values: |
+        profile: local
+  destination:
+    # For a sandboxed eval, replace with your registered vcluster:
+    #   name: leloir-sandbox
+    server: https://kubernetes.default.svc
+    namespace: leloir-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

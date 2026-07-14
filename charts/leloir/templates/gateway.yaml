@@ -11,6 +11,12 @@ data:
     listenAddr: ":8082"
     egressPolicy: allowlist
     controlPlaneUrl: "http://{{ include "leloir.controlplane.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+    {{- if .Values.controlPlane.internalListener.enabled }}
+    # Every tool call is forwarded to the tenant's WORM audit (UI Audit tab +
+    # SIEM streaming). result=shadowed feeds the shadow-honesty annotation
+    # (spec-m17.6). Authenticated with the shared internal bearer.
+    auditEndpoint: "http://{{ include "leloir.controlplane.fullname" . }}-internal.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.controlPlane.internalListener.port }}/internal/audit"
+    {{- end }}
     observability: {metrics: {enabled: true}}
     antiThrashing:
       enabled: true

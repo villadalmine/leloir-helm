@@ -1,0 +1,55 @@
+{{- /*
+Hardening (OFF by default — requires Cilium; see docs/DEPENDENCIES_DEBATE.md):
+
+  hardening.networkPolicies.enabled  → CiliumNetworkPolicy locking the control
+    plane's internal listener (:8090, /internal/*) so ONLY the gateway reaches
+    it. Defense-in-depth ON TOP of the bearer token, never instead of it.
+
+  hardening.mtls.enabled  → additionally requires SPIFFE mutual auth on the
+    gateway→control-plane internal path (Cilium must be installed WITH SPIRE:
+    authentication.mutual.spire.enabled=true). Safe increment: the callbacks
+    crossing this seam (thrash escalation, tool-call audit forward) are
+    fail-open — a broken handshake degrades them without affecting
+    investigations.
+*/}}
+{{- if and .Values.hardening.networkPolicies.enabled .Values.controlPlane.internalListener.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "leloir.fullname" . }}-controlplane-internal-lock
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: leloir-controlplane
+  # NO default-deny: the public :8080 port is not touched.
+  enableDefaultDeny:
+    ingress: false
+    egress: false
+  {{- if .Values.hardening.mtls.enabled }}
+  ingress:
+    # The legitimate gateway→:8090 path requires SPIFFE mutual auth.
+    - fromEndpoints:
+        - matchLabels:
+            app: leloir-mcp-gateway
+      toPorts:
+        - ports:
+            - port: {{ .Values.controlPlane.internalListener.port | quote }}
+              protocol: TCP
+      authentication:
+        mode: required
+  {{- end }}
+  ingressDeny:
+    # Deny :8090 to everything that is NOT the gateway.
+    - fromEndpoints:
+        - matchExpressions:
+            - key: app
+              operator: NotIn
+              values: ["leloir-mcp-gateway"]
+      toPorts:
+        - ports:
+            - port: {{ .Values.controlPlane.internalListener.port | quote }}
+              protocol: TCP
+{{- end }}

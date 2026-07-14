@@ -36,6 +36,19 @@ data:
       spendVelocityUSD: {{ .Values.anomaly.spendVelocityUSD }}
       autoReleaseCooldownMinutes: {{ .Values.anomaly.autoReleaseCooldownMinutes }}
       # thrashToken via LELOIR_THRASH_TOKEN (Secret).
+    {{- if .Values.audit.streaming.endpoint }}
+    audit:
+      # SIEM streaming (FREE feature): every audit event is also POSTed to this
+      # sink as a JSON batch. Fail-open — a dead sink never blocks anything.
+      # Bearer via LELOIR_AUDIT_STREAM_TOKEN (Secret), never in this ConfigMap.
+      streaming:
+        endpoint: {{ .Values.audit.streaming.endpoint | quote }}
+        {{- with .Values.audit.streaming.headers }}
+        headers: {{- toYaml . | nindent 10 }}
+        {{- end }}
+        batchSize: {{ .Values.audit.streaming.batchSize }}
+        flushInterval: {{ .Values.audit.streaming.flushInterval }}
+    {{- end }}
     {{- if .Values.rag.enabled }}
     rag:
       embeddingModel: {{ .Values.rag.embeddingModel | quote }}

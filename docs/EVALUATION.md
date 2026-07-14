@@ -62,6 +62,33 @@ main host cluster remains completely untouched.
 
 ---
 
+## GitOps evaluation with ArgoCD
+
+Prefer GitOps? [`deploy/argocd/leloir-application.yaml`](../deploy/argocd/leloir-application.yaml)
+ships two objects: a repository Secret that teaches ArgoCD to pull the chart from GHCR as
+**OCI** (anonymous — chart and image are public), and an `Application` that installs it with
+`profile=local`, auto-synced.
+
+```bash
+kubectl apply -f deploy/argocd/leloir-application.yaml
+```
+
+**Combine with vcluster for a fully disposable GitOps sandbox:**
+
+```bash
+# 1. Create the sandbox and register it in ArgoCD
+vcluster create leloir-sandbox -n vcluster-leloir
+vcluster connect leloir-sandbox -n vcluster-leloir -- argocd cluster add ...  # or: argocd cluster add vcluster_leloir-sandbox
+# 2. Point the Application's destination at the vcluster (destination.name)
+# 3. Sync — ArgoCD installs Leloir INSIDE the sandbox
+# 4. Done evaluating? vcluster delete leloir-sandbox → everything vanishes,
+#    and ArgoCD shows the Application as missing (prune on delete if you like).
+```
+
+> ⚠ **CRDs are cluster-scoped:** the chart ships 10 Leloir CRDs. Do NOT point the
+> Application at a cluster that already runs Leloir — use a vcluster (its CRDs live
+> inside the sandbox) or a dedicated cluster.
+
 ## For Chart Developers
 
 If you are iterating on the chart (using local code, not the published release), use the
@@ -69,5 +96,12 @@ If you are iterating on the chart (using local code, not the published release),
 installs the chart **from the local directory** with `--wait`, and reports any
 `CrashLoopBackOff` or volume errors. It's ideal for the CI/validation loop.
 
-> Future idea: a **self-service "try it out" dev-environment** (vcluster + ArgoCD)
-> packaged together, so a user can spin up Leloir with a single click.
+### Parity routine (maintainers)
+
+Features are usually proven first on the maintainers' cluster and then **must** be
+replicated in this official chart — the chart is what everyone else runs.
+[`scripts/check-parity.sh`](../scripts/check-parity.sh) makes forgetting loud: it checks a
+static manifest of required deploy-surface features (config keys, env vars, CNPs) against
+the chart templates, and — when the private infra repo is available via `INFRA_ROLE` — also
+scans it for config keys the chart doesn't know about. Add a line to the script's manifest
+whenever a new feature grows a deploy surface, and re-test with `test-vcluster.sh`.
