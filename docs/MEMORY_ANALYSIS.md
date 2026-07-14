@@ -340,12 +340,27 @@ filled in as each backend is deployed in infra-ai (`make honcho|letta|mem0`).
 
 ### Live benchmark matrix (filled as deployed)
 
-| Operation | Honcho (v3.0.12) | Letta | mem0 | Zep |
+| Operation | Honcho (v3.0.12) | Letta (0.16.8) | mem0 | Zep |
 |---|---|---|---|---|
-| CAPTURE | ✅ ~45 ms | _pending deploy_ | _pending deploy_ | n/a (CE deprecated) |
-| RECALL | ✅ (warm) | _pending_ | _pending_ | n/a |
-| SYNTHESIZE | ✅ ~14–19 s, correct | _pending_ | _pending_ | n/a |
-| DERIVE | ✅ w/ Sonnet 5 (7 observations) | _pending_ | _pending_ | n/a |
+| CAPTURE | ✅ ~45 ms (deterministic write) | ✅ ~2.5 s (inline embed) | _pending deploy_ | n/a (CE deprecated) |
+| RECALL | ✅ HIT (warm) | ✅ HIT ~2 s (inv-001 top-1) | _pending_ | n/a |
+| SYNTHESIZE | ✅ ~14–19 s, correct | ✅ ~38 s (agent multi-step) | _pending_ | n/a |
+| DERIVE | ✅ w/ Sonnet 5 (7 observations) | n/a (agent self-edits, no bg deriver) | _pending_ | n/a |
+
+**What the numbers say (Honcho vs Letta, both live-tested):**
+- **Honcho is lighter & faster.** CAPTURE is a ~45 ms deterministic write (embedding
+  is async); Letta embeds inline on write (~2.5 s). Honcho's dialectic answers in
+  ~15 s; Letta's agent does multi-step self-reasoning (~38 s).
+- **Letta needs a strong tool-calling model.** With `gemini-flash` its agent
+  messaging returned HTTP 500; only `claude-sonnet` produced correct answers. Honcho's
+  dialectic worked even on a free-tier model; only its *deriver* needs a strong model.
+- **Setup friction:** Letta's "simplest to self-host" claim has a caveat — its
+  migration needs the pgvector extension enabled manually (`CREATE EXTENSION vector`);
+  Honcho booted clean.
+- **Model fit:** Letta is **agent-centric** (each memory is an agent that edits its
+  own context) — powerful but heavier per operation. Honcho's **peer + deriver +
+  dialectic** split is a better match for Leloir's "many tenants, many agents, cheap
+  reads" shape. This is the concrete, measured reason Honcho is our default.
 
 ## 7. Follow-ups
 - Point Honcho's deriver at a structured-output-capable model → unlock full
