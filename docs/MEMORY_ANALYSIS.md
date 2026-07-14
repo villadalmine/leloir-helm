@@ -431,9 +431,18 @@ contained agent `capture_incident(checkout OOMKilled → -Xmx==limit → raised 
 in investigation 1; then in investigation 2 a new JVM alert →
 `recall_incident("JVM memory OOMKilled pod limit")` returns the exact stored
 incident. **The black-box agent gained episodic memory through the governed MCP
-facade without touching its runtime** — the memory differentiator, working. (Async
-caveat: Honcho embeds on a delay, so recall-right-after-capture can miss; real use
-has the natural time gap.)
+facade without touching its runtime** — the memory differentiator, working.
+
+**Now DEPLOYED in-cluster (not just a local run):** `leloir-honcho-mcp` runs as a
+pod, the gateway registers it as a per-tenant `MCPServer` (transport: mcp) and
+**routes + audits** its tool calls (governance: `mcp tool call, server=honcho`
+lands in the WORM audit). Two real deployment fixes found and codified: (1) the
+Honcho **Service port is 80** (not the container's 8000); (2) **`EMBED_MESSAGES`
+must be `true`** for semantic search (it was off — now enabled since litellm
+serves `text-embedding-3-small`). With both, the deployed loop is reliable:
+capture → (embed) → recall returns the exact incident. (Async caveat still applies:
+Honcho embeds on a delay, so recall-right-after-capture can miss; real use has the
+natural time gap between investigations.)
 
 **Refined recommendation:** the **native memory (memory-mcp + RAG) stays the
 default precisely because it has ZERO integration cost** — it's MCP-native and
