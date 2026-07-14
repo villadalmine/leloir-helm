@@ -15,6 +15,7 @@ helm install leloir oci://ghcr.io/villadalmine/leloir \
 
 - **[Support Matrix](docs/SUPPORT_MATRIX.md)** — what works with what (OIDC providers, CNIs, LLM backends, agents, distros) with honest badges (proven / coded / planned).
 - **[Optionality & Degradation Matrix](docs/OPTIONALITY_MATRIX.md)** — for each pluggable component (memory/Honcho, CNI/Cilium, monitoring/OTEL, LLM, auth…): what happens to the product if you don't use it or swap it. Only two hard dependencies; everything else degrades gracefully.
+- **[Memory Analysis](docs/MEMORY_ANALYSIS.md)** — deep-dive + live results (Honcho, our default) and honest framework comparison (Honcho / mem0 / Zep / Letta) with metrics and real cases where memory changes the outcome.
 
 ## Sandboxed Evaluation
 
