@@ -11,6 +11,11 @@ helm install leloir oci://ghcr.io/villadalmine/leloir \
   --create-namespace
 ```
 
+## Support Matrix
+
+What works with what — OIDC providers, CNIs, LLM backends, agents, distros — with
+honest badges (proven / coded / planned): **[docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)**.
+
 ## Sandboxed Evaluation
 
 Want to evaluate Leloir safely without polluting your host cluster? 
