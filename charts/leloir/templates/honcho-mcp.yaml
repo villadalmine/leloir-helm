@@ -1,0 +1,70 @@
+{{- if .Values.memory.honcho.enabled }}
+# leloir-honcho-mcp — adapts Honcho (external REST v3 episodic memory) into a
+# Leloir MCP server, so a black-box contained agent gains memory through the
+# governed MCP facade without touching its runtime (spec-native-memory §Adapter).
+# Optional: requires an external Honcho (memory.honcho.baseUrl) + its AUTH_JWT_SECRET.
+# Register it in the gateway's MCPServer registry per-tenant to use it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "leloir.fullname" . }}-honcho-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-honcho-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leloir-honcho-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "leloir.labels" . | nindent 8 }}
+        app: leloir-honcho-mcp
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: honcho-mcp
+          image: {{ include "leloir.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/leloir-honcho-mcp"]
+          ports:
+            - {containerPort: 8090, name: http}
+          env:
+            # NOTE: use the Honcho SERVICE port (often 80), not the container's 8000.
+            - {name: HONCHO_BASE_URL, value: {{ .Values.memory.honcho.baseUrl | quote }}}
+            - {name: LELOIR_HONCHO_ADDR, value: ":8090"}
+            # The SAME AUTH_JWT_SECRET Honcho signs with (to mint its admin JWT).
+            - name: HONCHO_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.memory.honcho.jwtSecret.name | quote }}
+                  key: {{ .Values.memory.honcho.jwtSecret.key | quote }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8090}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leloir.fullname" . }}-honcho-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    app: leloir-honcho-mcp
+spec:
+  type: ClusterIP
+  selector:
+    app: leloir-honcho-mcp
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {name: http, port: 8090, targetPort: 8090}
+{{- end }}

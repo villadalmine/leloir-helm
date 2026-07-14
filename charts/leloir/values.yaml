@@ -90,6 +90,19 @@ gateway:
 memoryMcp:
   enabled: true
 
+# ─── External memory adapters (optional; free) ────────────────────────────────
+# Honcho adapter: gives black-box contained agents episodic memory via the
+# governed MCP facade (spec-native-memory §Adapter). Requires an external Honcho
+# (https://honcho.dev) reachable at baseUrl + a Secret holding its AUTH_JWT_SECRET.
+# Off by default. Register it in the gateway's MCPServer registry per-tenant.
+memory:
+  honcho:
+    enabled: false
+    baseUrl: "http://honcho-api.honcho.svc.cluster.local:80"  # SERVICE port (often 80, not 8000)
+    jwtSecret:
+      name: honcho-secrets       # a Secret you provide (Honcho's AUTH_JWT_SECRET)
+      key: AUTH_JWT_SECRET
+
 # ─── Webhook receiver (Alertmanager/Slack/… → /api/v1/alerts) ─────────────────
 webhookReceiver:
   enabled: true
