@@ -23,6 +23,9 @@ data:
         issuer: {{ .Values.auth.oidc.issuer | quote }}
         clientId: {{ .Values.auth.oidc.clientID | quote }}
         # clientSecret via LELOIR_OIDC_CLIENT_SECRET (Secret).
+        {{- with .Values.auth.oidc.adminEmails }}
+        adminEmails: {{- toYaml . | nindent 10 }}
+        {{- end }}
       {{- else }}
       mode: single-user
       singleUser:
@@ -36,8 +39,9 @@ data:
       spendVelocityUSD: {{ .Values.anomaly.spendVelocityUSD }}
       autoReleaseCooldownMinutes: {{ .Values.anomaly.autoReleaseCooldownMinutes }}
       # thrashToken via LELOIR_THRASH_TOKEN (Secret).
-    {{- if .Values.audit.streaming.endpoint }}
     audit:
+      hotRetentionDays: {{ .Values.audit.hotRetentionDays }}
+      {{- if .Values.audit.streaming.endpoint }}
       # SIEM streaming (FREE feature): every audit event is also POSTed to this
       # sink as a JSON batch. Fail-open — a dead sink never blocks anything.
       # Bearer via LELOIR_AUDIT_STREAM_TOKEN (Secret), never in this ConfigMap.
@@ -48,6 +52,21 @@ data:
         {{- end }}
         batchSize: {{ .Values.audit.streaming.batchSize }}
         flushInterval: {{ .Values.audit.streaming.flushInterval }}
+      {{- end }}
+    {{- if .Values.containment.enabled }}
+    # Modo 2 (black-box containment, spec-m13.4): platform-provisioned agents
+    # get scoped RBAC + egress-lock + forced env pointing at these seams.
+    containment:
+      enabled: true
+      gatewayHost: "{{ include "leloir.gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+      gatewayPort: 8082
+      llmHost: {{ .Values.containment.llmHost | quote }}
+      llmPort: {{ .Values.containment.llmPort }}
+      platformNamespaces:
+        - {{ .Release.Namespace }}
+        {{- range .Values.containment.extraPlatformNamespaces }}
+        - {{ . }}
+        {{- end }}
     {{- end }}
     {{- if .Values.rag.enabled }}
     rag:

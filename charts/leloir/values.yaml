@@ -27,7 +27,7 @@ image:
   repository: ghcr.io/villadalmine/leloir-controlplane
   tag: ""                 # empty = uses .Chart.appVersion
   pullPolicy: IfNotPresent
-# Images are private for now — the user injects their imagePullSecrets.
+# The GHCR image is public — imagePullSecrets only needed for private mirrors.
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -112,6 +112,7 @@ anomaly:                    # anomaly → quarantine (free)
 # Postgres audit stays the source of truth. Bearer auth via the
 # LELOIR_AUDIT_STREAM_TOKEN env (set audit.streaming.existingSecret).
 audit:
+  hotRetentionDays: 7       # Postgres hot-tier retention (corporate profile default: 90)
   streaming:
     endpoint: ""            # empty = disabled
     headers: {}             # extra static headers (e.g. X-Scope-OrgID)
@@ -119,6 +120,17 @@ audit:
     flushInterval: 2s
     existingSecret: ""      # Secret with key "token" → Authorization: Bearer
     existingSecretKey: "token"
+
+# ─── Black-box containment (Modo 2, spec-m13.4 — free) ────────────────────────
+# When enabled, platform-provisioned agents (AgentRegistration with
+# spec.containment) get scoped RBAC + egress-lock + forced env pointing at the
+# gateway/LLM seams. Requires an LLM proxy reachable at llmHost (e.g. litellm),
+# which this chart does NOT bundle — hence off by default.
+containment:
+  enabled: false
+  llmHost: ""               # e.g. litellm-proxy.ai.svc.cluster.local
+  llmPort: 4000
+  extraPlatformNamespaces: []   # namespaces agents may egress to besides the release ns
 
 # ─── Deployment hardening (chart flags, default OFF — requires Cilium) ────────
 # These ARE separate manifests (Cilium CNPs) that would break a cluster without
@@ -162,6 +174,7 @@ auth:
     clientID: ""
     # clientSecret via existingSecret (never in values).
     existingSecret: ""
+    adminEmails: []         # emails granted the admin role
 
 # Node/scheduling (optional; empty = no restrictions).
 nodeSelector: {}
