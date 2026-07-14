@@ -421,12 +421,19 @@ system plug into an MCP architecture?**
 | **mem0 / Letta / Cognee** | REST | ⚠️ same — REST→MCP adapter | one small service |
 
 **Why this matters:** Honcho's `/v3/workspaces/{ws}/search|chat` does not match the
-gateway's http-transport tool convention (`POST {endpoint}/{tool}` with the SDK
-envelope), and it's not MCP-native. So plugging Honcho into a **contained
-black-box agent** (the differentiator) requires a **thin adapter** that: (1)
-exposes MCP tools `recall_incident(query)` / `capture_incident(...)`; (2) maps the
-gateway's per-tenant header → a Honcho workspace; (3) translates to Honcho REST.
-The adapter is small but real.
+gateway's http-transport tool convention, and it's not MCP-native. So plugging
+Honcho into a **contained black-box agent** (the differentiator) requires a thin
+adapter. **We built it (`leloir-honcho-mcp`) and PROVED it live:** it exposes MCP
+tools `recall_incident`/`capture_incident`, maps the gateway's non-spoofeable
+tenant header → a Honcho workspace (isolation), mints Honcho's admin JWT, and
+proxies to Honcho REST. **End-to-end demonstrated against real Honcho:** a
+contained agent `capture_incident(checkout OOMKilled → -Xmx==limit → raised limit)`
+in investigation 1; then in investigation 2 a new JVM alert →
+`recall_incident("JVM memory OOMKilled pod limit")` returns the exact stored
+incident. **The black-box agent gained episodic memory through the governed MCP
+facade without touching its runtime** — the memory differentiator, working. (Async
+caveat: Honcho embeds on a delay, so recall-right-after-capture can miss; real use
+has the natural time gap.)
 
 **Refined recommendation:** the **native memory (memory-mcp + RAG) stays the
 default precisely because it has ZERO integration cost** — it's MCP-native and
