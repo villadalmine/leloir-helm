@@ -191,13 +191,43 @@ deriver adds over a plain store.
 - **Follow-up:** an Alloy pipeline to translate Honcho's CloudEvents envelope into
   Prometheus metrics / Tempo traces (collector-side config).
 
-### Real benchmark harness
+### Real benchmark harness — HEAD-TO-HEAD MEASURED (2026-07-14)
 `leloir/scripts/bench-memory.sh` measures the four memory operations Leloir relies
-on (CAPTURE / RECALL / SYNTHESIZE / DERIVE) against a backend, with real latency +
-correctness, structured to add mem0/zep/letta. Live Honcho numbers (warm path):
-CAPTURE ~45 ms, SYNTHESIZE ~14–19 s (dialectic, correct), DERIVE background with
-Sonnet 5. Cold-start caveat applies (§ operational notes) — the harness reflects
-that the async layers need warm-up, which real Leloir usage always has.
+on (CAPTURE / RECALL / SYNTHESIZE / DERIVE) against each backend, with real latency
++ correctness. **All three run the SAME real model (`anthropic/claude-sonnet-5`
+via OpenRouter direct) with a per-consumer API key** (`leloir-bench-honcho|letta|mem0`,
+created with the OpenRouter management key, $5 cap each) — so the numbers are
+comparable AND every call is attributable per-key in the OpenRouter activity log
+(ground truth, verified in the dashboard).
+
+| Op | **Honcho** | **Letta 0.16.8** | **mem0 (patched)** |
+|---|---|---|---|
+| CAPTURE | ✅ 201 · **39 ms–1.7 s** (write cheap; embed async) | ✅ 200 · 7.4 s (inline embed) | ✅ 200 · 10–12 s (**LLM fact-extraction on every write**, 5 facts) |
+| RECALL (correct incident top-1) | ✅ HIT · 330 ms | ✅ HIT · 1.8 s | ✅ HIT · 370 ms — but **IDs atomized away** (the incident id lands in a *different* fact than the rule: traceability of "which incident taught this" degrades) |
+| SYNTHESIZE (NL answer citing incident) | ✅ correct ("40% + inv-001") · 6.7–8.8 s (native dialectic) | ❌ **agent failed to retrieve its own archival memory even when explicitly asked** (searched conversation history, answered "no record" — honest but empty; the raw archival-search API DOES hit) | — N/A by design (returns memories; caller synthesizes) |
+| DERIVE (background representation) | ✅ 9–11 observations · 8–33 s (Sonnet; free-tier models yield **zero** observations) | — N/A (agent self-edits memory, no separate deriver) | 🟡 inline at write-time (the fact extraction), not background |
+| Per-key attribution (OpenRouter) | ✅ $0.046 | ✅ $0.023 | ✅ $0.015 |
+
+**Deployment pain measured (not desk research):**
+- **Honcho:** clean, but two sharp edges we hit live: (1) v3 settings envs are
+  `<PREFIX>_MODEL_CONFIG__MODEL` — old-style names (`DERIVER_MODEL`) are silently
+  ignored (`extra="ignore"`) and every component falls back to its internal
+  default (`gpt-5.4-mini`) — **caught only via per-call activity**; (2) deriver
+  batching (512 tok / 30 min age) makes short incident captures look like a dead
+  deriver → `DERIVER_FLUSH_ENABLED=true` for incident memory.
+- **Letta:** simplest infra, but `OPENAI_BASE_URL` > `OPENAI_API_BASE` precedence
+  + handles cache the endpoint in its DB (env change ≠ config change; agents must
+  be created with explicit `llm_config`/`embedding_config`). The archival↔agent
+  disconnect above is the real blocker for the synthesis use case.
+- **mem0:** **8 blockers before first boot** — no psycopg in the image, config.json
+  ignored (env-only), `graph_store` neo4j **unconditional** in `main.py`, LLM/embed
+  models **hardcoded** (`gpt-4o`), sqlite history on a read-only path, pip install
+  OOMKilled without limits, plus 2 earlier config-shape issues. It runs **only
+  with a runtime patch of its `main.py`** (codified in
+  `infra-ai/roles/install-mem0/files/mem0-patch.py`). Verdict unchanged: heaviest.
+
+Cold-start caveat applies (§ operational notes) — the async layers need warm-up,
+which real Leloir usage always has.
 
 ---
 
@@ -234,11 +264,12 @@ investigation starts cold; the black-box agent is amnesiac by construction.
 
 ## 4. Framework comparison (metrics + recommendation)
 
-> **Honesty note:** only **Honcho is deployed and live-tested on our cluster**
-> (§2). mem0 / Zep / Letta are **NOT installed** — their rows below are
-> **desk research** from each project's public material and benchmarks, not
-> head-to-head measurements here. A real head-to-head would require deploying
-> them on the same incident corpus (tracked as a follow-up).
+> **Honesty note (updated 2026-07-14):** **Honcho, Letta and mem0 are deployed on
+> our cluster and head-to-head MEASURED** with the same real model
+> (`anthropic/claude-sonnet-5`) and per-consumer keys — see §2 "Real benchmark
+> harness" for the measured matrix. Zep remains desk research only (its
+> self-hostable Community Edition is deprecated, §5 — not worth deploying).
+> Public benchmark numbers in the table below are still each project's own claims.
 
 All are **OSS and self-hostable** → no forced vendor lock. "Paid" columns are the
 optional managed/enterprise tiers, not a requirement.
@@ -257,13 +288,13 @@ Same needs as the §0 map, scored per backend (✅ native/strong · 🟡 possibl
 
 | Leloir memory need | native RAG+memory-mcp | Honcho ⭐ | mem0 | Zep | Letta |
 |---|---|---|---|---|---|
-| Auto-runbook (episodic recall of past incident) | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| Auto-runbook (episodic recall of past incident) | ✅ | ✅ **measured HIT** | ✅ **measured HIT** (but incident-id atomized away from the rule) | ✅ | ✅ **measured HIT** (API-level) |
 | Agent scratch memory (remember/recall/forget) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Cross-session continuity per agent/service | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | Peer/entity modeling ("what agent A knows about service B") | — | ✅ (native peer model) | 🟡 | 🟡 | 🟡 |
 | Temporal reasoning ("what was true when") | 🟡 | 🟡 | 🟡 | ✅ (native temporal graph) | 🟡 |
 | Black-box agent memory via MCP facade | ✅ | ✅ | ✅ | ✅ | ✅ |
-| NL synthesis over memory (dialectic) | 🟡 (via LLM) | ✅ (native) | 🟡 | 🟡 | ✅ |
+| NL synthesis over memory (dialectic) | 🟡 (via LLM) | ✅ (native, **measured correct**: cites rule + incident) | — (caller does it) | 🟡 | ❌ **measured fail** (0.16.8: agent can't reach its own archival in-chat, even asked explicitly) |
 | Tenant isolation (recall scoped per tenant) | ✅ | ✅ (workspace) | ✅ | ✅ | ✅ |
 | Fully self-hosted, no paid tier | ✅ | ✅ | 🟡 (graph=Pro) | 🟡 (platform=SaaS) | ✅ |
 | Zero extra infra (beyond Leloir's Postgres) | ✅ | — (own PG+Redis) | — | — | — |
