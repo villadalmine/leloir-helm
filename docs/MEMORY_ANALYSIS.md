@@ -407,6 +407,36 @@ booted and served; mem0 fought back at every step.
   dialectic** split is a better match for Leloir's "many tenants, many agents, cheap
   reads" shape. This is the concrete, measured reason Honcho is our default.
 
+## 6.5 Integration reality — MCP-native vs REST (a decisive refinement)
+
+Leloir's tool/memory plane is **MCP-based** (the gateway's `mcp` transport). This
+adds a real, often-overlooked axis to the memory choice: **how cleanly does the
+system plug into an MCP architecture?**
+
+| System | Native protocol | Plugs into Leloir's MCP slot | Integration cost |
+|---|---|---|---|
+| **`leloir-memory-mcp`** (native) | **MCP** | ✅ directly (`transport: mcp`) | **zero** — it IS an MCP server |
+| **RAG episodic** (native) | in-process | ✅ built into the orchestrator | zero |
+| **Honcho** | **REST v3** (workspace-scoped) | ⚠️ needs a **thin REST→MCP adapter** | one small service |
+| **mem0 / Letta / Cognee** | REST | ⚠️ same — REST→MCP adapter | one small service |
+
+**Why this matters:** Honcho's `/v3/workspaces/{ws}/search|chat` does not match the
+gateway's http-transport tool convention (`POST {endpoint}/{tool}` with the SDK
+envelope), and it's not MCP-native. So plugging Honcho into a **contained
+black-box agent** (the differentiator) requires a **thin adapter** that: (1)
+exposes MCP tools `recall_incident(query)` / `capture_incident(...)`; (2) maps the
+gateway's per-tenant header → a Honcho workspace; (3) translates to Honcho REST.
+The adapter is small but real.
+
+**Refined recommendation:** the **native memory (memory-mcp + RAG) stays the
+default precisely because it has ZERO integration cost** — it's MCP-native and
+already governed/audited. **Honcho (and any external system) is the optional
+richer brain, at the cost of one adapter.** This strengthens "camino C" in
+`leloir/docs/specs/spec-native-memory-analysis.md`: invest in polishing the
+native MCP-native memory (covers 80% with zero friction), offer Honcho via a
+documented adapter for the peer-modeling 20%. For the black-box demo, the adapter
+is the concrete next build (designed in the native-memory spec §Adapter).
+
 ## 7. Follow-ups
 - Point Honcho's deriver at a structured-output-capable model → unlock full
   representations; re-measure.
