@@ -9,6 +9,31 @@ without it, is spelled out below with real evidence from our cluster.
 
 ---
 
+## The cost of forgetting — why memory matters
+
+Turn memory off and Leloir still governs perfectly: budgets hold, RBAC holds, the
+audit trail is complete, black-box agents stay contained. **Nothing breaks.** But
+the platform gets *amnesia*, and amnesia is expensive:
+
+- **Every incident is investigated from zero.** The 3 a.m. OOMKill you root-caused
+  last month? The agent re-derives it from scratch — same tokens, same minutes,
+  same toil. Memory is what turns the second occurrence into a one-step
+  confirmation instead of a fresh investigation.
+- **Lessons never compound.** A rule learned on `checkout-service` ("JVM pods need
+  40% headroom over -Xmx") stays trapped in one incident's notes. With memory it
+  transfers to the next JVM service *before* it pages someone.
+- **Your black-box agents are amnesiac by construction.** A contained third-party
+  agent (HolmesGPT, kagent) can't be modified — external memory over the MCP facade
+  is the *only* way to give it institutional knowledge of *your* cluster's quirks.
+- **Budget burns on solved problems.** Re-investigating a known incident spends LLM
+  budget you already paid once. Memory is also a FinOps lever.
+
+**So the honest pitch is not "you must have memory" — it's "without it, Leloir is a
+brilliant investigator with no long-term memory: correct every time, wiser never."**
+Memory is the difference between a tool that *responds* and a platform that *learns*.
+And because it plugs in through the governed MCP path, you add it — and swap it —
+without touching the core.
+
 ## 0. THE MAP — how every Leloir capability relates to memory
 
 This is the authoritative table: for each Leloir feature, **does it touch memory,
@@ -234,12 +259,32 @@ Same needs as the §0 map, scored per backend (✅ native/strong · 🟡 possibl
 | Fully self-hosted, no paid tier | ✅ | ✅ | 🟡 (graph=Pro) | 🟡 (platform=SaaS) | ✅ |
 | Zero extra infra (beyond Leloir's Postgres) | ✅ | — (own PG+Redis) | — | — | — |
 
-> ⭐ **Our recommendation: default to Honcho.** It's deployed, governed by our LLM
-> layer, live-tested, and its peer-centric model is the cleanest fit for a
-> multi-tenant, multi-agent governance product — plus it's the strongest for the
-> black-box continuity story. **The user always decides**; mem0 / Zep / Letta drop
-> into the same `MCPServer` slot. We ship Honcho as the reference and document the
-> others as first-class alternatives.
+### The wider landscape (surveyed — the slot is open)
+
+The four above are not the whole field. We surveyed the 2026 landscape; other
+notable **self-hostable** options that plug into the same `MCPServer` slot:
+
+| System | Angle | Self-host | Note |
+|---|---|---|---|
+| **Cognee** | hybrid graph+vector, 14 retrieval modes, self-improving pipeline, MCP server | ✅ Apache-2.0 | ranks #1 in several 2026 lists; heavier (graph+vector+relational stores) |
+| **EverMind EverOS** | highest stated LoCoMo/LongMemEval scores | ✅ Apache-2.0 | benchmark-leader claim; evaluate independently |
+| **Supermemory** | coding-agent memory, MCP + Claude Code plugins | ✅ | purpose-fit for dev-agent workflows |
+| **memobase** | cross-tool "memory passport" over MCP | ✅ | shared memory across MCP clients |
+| **LangMem / Memary** | LangGraph-native / graph memory | ✅ | framework-coupled |
+
+**This is the whole point of the design:** Leloir is **not limited to any one memory
+system**. The `MCPServer` CRD slot is open — Honcho, Letta, mem0, Cognee, EverMind,
+or one that doesn't exist yet all attach the same governed way. Our job is to ship a
+*tested, sensible default*, not to lock you in.
+
+> ⭐ **Our recommendation: Honcho is the default *for Leloir* — not "the best memory
+> system in the world", but the best fit for THIS product.** It's deployed here,
+> governed by our LLM layer, live-tested end-to-end, self-hosts cleanly with built-in
+> auth, and its peer-centric model (peer = agent/service/tenant) maps 1:1 onto
+> Leloir's world — plus it's the strongest for the black-box continuity story.
+> **You always decide.** Letta is the lightest alternative; mem0/Cognee/EverMind are
+> first-class options; Zep's platform is off the table for self-host (§5). We ship
+> Honcho as the reference and keep the slot open.
 
 **Caveats we state openly:** benchmark numbers come from each project's public
 material and vary by underlying model — treat them as directional, not gospel.
