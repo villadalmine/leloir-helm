@@ -9,6 +9,50 @@ without it, is spelled out below with real evidence from our cluster.
 
 ---
 
+## 0. THE MAP — how every Leloir capability relates to memory
+
+This is the authoritative table: for each Leloir feature, **does it touch memory,
+which layer, is memory required or just an enhancement, and what is lost without
+it.** It's how you reason about the Leloir stack's dependency on memory. Grounded
+in the actual integration points (code refs in the last column).
+
+Legend — **Dependency:** `required` (feature can't work without memory) ·
+`enhancement` (works without, better with) · `none` (independent) ·
+`isolation` (memory participates but the governance property is the point).
+
+| Leloir capability | Memory? | Layer | Dependency | What memory covers here | Lost without memory | Where (code) |
+|---|---|---|---|---|---|---|
+| Alert ingestion & routing | no | — | none | — | nothing | — |
+| **Investigation — entry (recall)** | yes | RAG episodic | **enhancement** | on a top-level alert, a similar past incident is recalled and injected as an auto-runbook `SkillRef` | agent starts cold, re-derives from zero | `orchestrator.go:280` (`RAG.Recall`) |
+| **Investigation — completion (capture)** | yes | RAG episodic | **enhancement** | on success with a root cause, the `alert→cause→remediation` triangle is stored | nothing learned for next time | `orchestrator.go:797` (`RAG.Capture`) |
+| **Auto-runbook (recurring incident)** | yes | RAG episodic | **enhancement (the core value)** | the recalled resolution collapses MTTR on a repeat | every recurrence investigated from scratch, burning budget | recall+capture above |
+| **Agent scratch memory** (`remember/recall/forget`) | yes | `leloir-memory-mcp` | enhancement | agents persist durable facts across tool calls, per-tenant | agents are stateless between calls | `cmd/leloir-memory-mcp` (MCP tools via gateway) |
+| **Cross-session / cross-incident continuity** | yes | external (Honcho/mem0/Zep/Letta) | enhancement | "what did we learn about this service/tenant over time" | lessons stay trapped in one incident | `MCPServer` CRD → MCP facade |
+| **Black-box agent memory (Modo 2)** | yes | external via MCP facade | **enhancement (differentiator)** | a contained agent gains continuity **without touching its runtime** | contained agents are amnesiac by construction | MCP facade → external memory |
+| Scheduled investigations | yes | RAG episodic | enhancement | same recall/capture path as any top-level investigation | same as investigation | inherits `StartInvestigation` |
+| A2A sub-investigations | **no (by design)** | — | none | a child inherits the parent's context; recall would add noise | nothing (intentional) | `orchestrator.go:277` (`ParentInvestigationID==""` guard) |
+| Distill runbook (m17.7) | partial | procedural (runbooks) | enhancement | complements episodic RAG with reusable procedures | no distilled procedures | runbook handler |
+| Change context (m17.4) | no | (recent rollouts feed) | none | "what changed recently" is a separate signal, not memory | less context, still works | changelog |
+| HITL / approvals | no | — | none | — | nothing | — |
+| Budget / quota / spend governance | no | — | none | — | nothing | — |
+| **Audit / WORM log** | no | — | **none (and deliberately separate)** | audit is the tamper-evident source of truth; NOT a memory store | nothing — audit never depends on memory | `audit/` |
+| RBAC / multi-tenancy | yes | all layers | **isolation** | **every recall is tenant-scoped first** (filter by `tenant_id` before similarity) — memory can't leak across tenants | — (this is a guarantee, not a feature loss) | RAG store tenant filter; memory-mcp header |
+| Shadow mode / Quarantine / SIEM streaming | no | — | none | — | nothing | — |
+| Blind-spot / drift detection | no | — | none | — | nothing | — |
+
+**Reading the map:**
+- **Memory is never `required`.** The heaviest dependency is `enhancement` — Leloir
+  runs, governs, and is correct without any memory; memory makes it *smarter*
+  (faster MTTR, cross-incident learning, black-box continuity).
+- **The governance core is memory-independent:** audit, budgets, RBAC, HITL,
+  containment, quarantine — none touch memory. That's why "no memory" is 🟡
+  degraded, never 🔴 blocked.
+- **The one hard property:** when memory IS used, it is **tenant-scoped by
+  construction** — recall filters by tenant before similarity, so memory upholds
+  the same isolation as the rest of the platform.
+
+---
+
 ## 1. How Leloir does memory
 
 Two native layers (zero external deps beyond the Postgres Leloir already needs)
@@ -172,6 +216,24 @@ optional managed/enterprise tiers, not a requirement.
 | **Zep / Graphiti** | temporal knowledge graph (timestamps every fact) | **~63.8% LongMemEval** (best of these) | strong | ✅ Graphiti (engine) open | full **Zep platform is SaaS** (credits) | strong if temporal reasoning matters; keep to open Graphiti to avoid lock |
 | **Letta (MemGPT)** | memory-OS (agent manages RAM/archival) | — | strong | ✅ fully OSS | low | most agent-autonomy; heavier mental model |
 
+### Which solution covers which Leloir memory need
+
+Same needs as the §0 map, scored per backend (✅ native/strong · 🟡 possible/partial ·
+— not its focus). This is "which memory system to reach for per use case."
+
+| Leloir memory need | native RAG+memory-mcp | Honcho ⭐ | mem0 | Zep | Letta |
+|---|---|---|---|---|---|
+| Auto-runbook (episodic recall of past incident) | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| Agent scratch memory (remember/recall/forget) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Cross-session continuity per agent/service | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| Peer/entity modeling ("what agent A knows about service B") | — | ✅ (native peer model) | 🟡 | 🟡 | 🟡 |
+| Temporal reasoning ("what was true when") | 🟡 | 🟡 | 🟡 | ✅ (native temporal graph) | 🟡 |
+| Black-box agent memory via MCP facade | ✅ | ✅ | ✅ | ✅ | ✅ |
+| NL synthesis over memory (dialectic) | 🟡 (via LLM) | ✅ (native) | 🟡 | 🟡 | ✅ |
+| Tenant isolation (recall scoped per tenant) | ✅ | ✅ (workspace) | ✅ | ✅ | ✅ |
+| Fully self-hosted, no paid tier | ✅ | ✅ | 🟡 (graph=Pro) | 🟡 (platform=SaaS) | ✅ |
+| Zero extra infra (beyond Leloir's Postgres) | ✅ | — (own PG+Redis) | — | — | — |
+
 > ⭐ **Our recommendation: default to Honcho.** It's deployed, governed by our LLM
 > layer, live-tested, and its peer-centric model is the cleanest fit for a
 > multi-tenant, multi-agent governance product — plus it's the strongest for the
@@ -187,7 +249,60 @@ avoid lock.
 
 ---
 
-## 5. Follow-ups
+## 5. Deployment reality & self-host viability (why this matters for a self-hosted product)
+
+Leloir is a **self-hosted-first governance product**. A memory system's value is
+moot if it can't be run in the customer's cluster without a SaaS dependency. This
+is the single most decision-relevant axis, and the four differ sharply:
+
+| System | Self-host footprint | Deps beyond an LLM | Auth | 2026 status | Self-host verdict |
+|---|---|---|---|---|---|
+| **Honcho** ⭐ | 1 API + worker + Postgres + Redis | Postgres, Redis | JWT (HS256) built-in | active OSS | ✅ **clean** — deployed & tested here |
+| **Letta** | 1 server (FastAPI) + Postgres | Postgres only | token | active OSS | ✅ **simplest** — no graph DB |
+| **mem0** | API + Postgres/pgvector + Neo4j | pgvector **+ Neo4j** (graph) | **none by default** (needs a proxy) | active OSS; graph tier gated Pro on cloud | 🟡 **heavier** — 3 stores, add auth |
+| **Zep** | Graphiti engine + graph DB (Neo4j/FalkorDB/Kuzu) | graph DB | — | **⚠️ Community Edition DEPRECATED (2026)** | 🔴 **not viable as a platform** — full API is SaaS-only; only the open Graphiti engine remains |
+
+**Critical finding — Zep:** the self-hostable **Community Edition was deprecated
+in 2026**. Production Zep now flows through **Zep Cloud (SaaS)** or a hand-rolled
+Graphiti + graph-DB stack *without* Zep's higher-level API. For a product whose
+whole thesis is "run it in your own cluster, no vendor lock," recommending Zep's
+platform would contradict the pitch. We keep Zep in the comparison for its
+temporal-graph strength, but flag it **not viable for self-hosted Leloir** — only
+the open Graphiti engine is, and that's a build-your-own effort.
+
+**What this means for the default:** Honcho and Letta are the two clean
+self-host paths. mem0 works but adds a Neo4j and needs an auth proxy. Zep's
+platform is off the table for self-host. This reinforces **Honcho as the
+default** (clean deploy, built-in auth, already governed by our LLM layer) with
+**Letta as the lightest alternative**.
+
+## 6. Evaluation methodology (how we measure — reproducible)
+
+Every claim marked "tested" comes from `leloir/scripts/bench-memory.sh`, which
+runs the **same four-operation benchmark** against each backend:
+
+| Operation | What it measures | Pass criterion |
+|---|---|---|
+| CAPTURE | write latency of an investigation's findings | HTTP 2xx, < 1s |
+| RECALL | does a later JVM alert retrieve incident inv-001 (not the redis one)? | top-1 correct |
+| SYNTHESIZE | NL query answered from memory across sessions | answer contains the learned rule + source incident |
+| DERIVE | background reasoning produces a structured representation | ≥1 observation |
+
+Same incident corpus, same LLM layer (litellm), same cluster. Backends are added
+by implementing `run_<backend>` against their REST API — so the matrix is
+**reproducible and honest**, not vendor-marketing numbers. Live results are
+filled in as each backend is deployed in infra-ai (`make honcho|letta|mem0`).
+
+### Live benchmark matrix (filled as deployed)
+
+| Operation | Honcho (v3.0.12) | Letta | mem0 | Zep |
+|---|---|---|---|---|
+| CAPTURE | ✅ ~45 ms | _pending deploy_ | _pending deploy_ | n/a (CE deprecated) |
+| RECALL | ✅ (warm) | _pending_ | _pending_ | n/a |
+| SYNTHESIZE | ✅ ~14–19 s, correct | _pending_ | _pending_ | n/a |
+| DERIVE | ✅ w/ Sonnet 5 (7 observations) | _pending_ | _pending_ | n/a |
+
+## 7. Follow-ups
 - Point Honcho's deriver at a structured-output-capable model → unlock full
   representations; re-measure.
 - Wire Honcho as a documented `MCPServer` CRD example; run the black-box path
