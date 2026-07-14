@@ -351,13 +351,34 @@ filled in as each backend is deployed in infra-ai (`make honcho|letta|mem0`).
 
 | Operation | Honcho (v3.0.12) | Letta (0.16.8) | mem0 (OSS server) | Zep |
 |---|---|---|---|---|
-| CAPTURE | ✅ ~45 ms (deterministic write) | ✅ ~2.5 s (inline embed) | ⚠️ blocked (see below) | n/a (CE deprecated) |
-| RECALL | ✅ HIT (warm) | ✅ HIT ~2 s (inv-001 top-1) | ⚠️ blocked | n/a |
+| CAPTURE | ✅ ~45 ms (deterministic write) | ✅ ~2.5 s (inline embed) | ❌ image broken standalone | n/a (CE deprecated) |
+| RECALL | ✅ HIT (warm) | ✅ HIT ~2 s (inv-001 top-1) | ❌ | n/a |
 | SYNTHESIZE | ✅ ~14–19 s, correct | ✅ ~38 s (agent multi-step) | n/a (returns memories, not NL) | n/a |
-| DERIVE | ✅ w/ Sonnet 5 (7 observations) | n/a (agent self-edits, no bg deriver) | n/a | n/a |
+| DERIVE | see integrity note (unverified) | n/a (agent self-edits, no bg deriver) | ❌ | n/a |
 
-**mem0 deployment finding (real — two concrete blockers hit):** deployed (API +
-Postgres + Qdrant), but:
+**Head-to-head verdict (measured, not marketing):** **Honcho and Letta are the
+two clean self-host paths and both benchmarked live.** Honcho is lighter/faster and
+its peer model fits Leloir best (our default). Letta works but is agent-heavy
+(slower, needs a strong tool-calling model, pgvector-extension gotcha). **mem0 —
+the most popular — could NOT be benchmarked because its official image doesn't run
+standalone** (hardcoded pgvector without the driver, expects its compose bundle +
+Neo4j); that IS the finding for a self-hosted product. **Zep is off the table**
+(Community Edition deprecated 2026). Net: for Leloir's self-hosted-first thesis,
+**Honcho default + Letta alternative**; mem0/Zep carry real self-host friction.
+
+**mem0 deployment — CONCLUSIVE finding (5 concrete blockers, exhaustively
+investigated):** the official `mem0/mem0-api-server` image is **effectively not
+runnable standalone**. Its `/app/main.py` **hardcodes** `DEFAULT_CONFIG` with
+`pgvector` + a `neo4j` graph store + OpenAI, reading only `POSTGRES_*`/`NEO4J_*`
+env — it **ignores** any mounted config (`MEM0_CONFIG_PATH` is not read). And the
+image **does not bundle `psycopg`**, so even the hardcoded pgvector fails at import.
+To run it we had to: deploy Postgres, set `POSTGRES_*` env, `pip install psycopg`
+via a command override, provide an OpenAI/litellm key — and it still expects Neo4j
+for the graph store. **This is the definitive head-to-head result: mem0, despite
+being the most-starred, is BY FAR the heaviest/most-broken to self-host** (built
+for its docker-compose bundle, not standalone). Honcho and Letta both booted and
+served real benchmarks; mem0 required hacking the image open and still isn't clean.
+For a self-hosted-first product this is decisive. (Earlier notes:)
 1. the official `mem0/mem0-api-server:latest` image **does not bundle `psycopg`**,
    so the **pgvector** backend fails at startup (`ImportError: Neither 'psycopg' nor
    'psycopg2'`);
