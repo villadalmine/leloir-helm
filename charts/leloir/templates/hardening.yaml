@@ -53,3 +53,34 @@ spec:
             - port: {{ .Values.controlPlane.internalListener.port | quote }}
               protocol: TCP
 {{- end }}
+{{- if and .Values.hardening.mtls.enabled .Values.gateway.enabled }}
+---
+# SPIFFE mTLS on the TOOLS path: every mesh endpoint talking to the gateway
+# (:8082) must mutually authenticate — the whole agent→tools seam. NO
+# default-deny and NO allowlist: nothing is denied by selector, only the
+# handshake is required (so a forgotten consumer degrades to a handshake,
+# never to a silent drop by policy).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "leloir.fullname" . }}-gateway-mtls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: leloir-mcp-gateway
+  enableDefaultDeny:
+    ingress: false
+    egress: false
+  ingress:
+    - fromEndpoints:
+        - {}
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+      authentication:
+        mode: required
+{{- end }}

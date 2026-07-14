@@ -43,7 +43,7 @@ network-security extras.
 |---|---|---|
 | Any CNI (core: gateway, budgets, RBAC, audit, RAG…) | ✅ Proven | No network prerequisites |
 | Cilium — CiliumNetworkPolicies (`hardening.networkPolicies`) | ✅ Proven | Internal-listener lock, egress-locks (containment) |
-| Cilium + SPIRE — SPIFFE mTLS (`hardening.mtls`) | ✅ Proven | Paths live today: gateway→control-plane internal, control-plane/memory-mcp→Postgres; requires Cilium installed with mutual-auth/SPIRE |
+| Cilium + SPIRE — SPIFFE mTLS (`hardening.mtls`) | ✅ Proven | Paths live today: **agents→gateway (:8082, the whole tools seam)**, gateway→control-plane internal, control-plane/memory-mcp→Postgres; requires Cilium installed with mutual-auth/SPIRE |
 | Calico / Flannel / cloud CNIs | ✅ Proven (core) / ❌ (mTLS & egress-lock) | Containment degrades to RBAC-only; documented behavior |
 | Standard NetworkPolicy fallback | 🗓 Planned | CNP-equivalents where expressible |
 
