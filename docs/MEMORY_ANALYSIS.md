@@ -439,8 +439,11 @@ pod, the gateway registers it as a per-tenant `MCPServer` (transport: mcp) and
 lands in the WORM audit). Two real deployment fixes found and codified: (1) the
 Honcho **Service port is 80** (not the container's 8000); (2) **`EMBED_MESSAGES`
 must be `true`** for semantic search (it was off — now enabled since litellm
-serves `text-embedding-3-small`). With both, the deployed loop is reliable:
-capture → (embed) → recall returns the exact incident. (Async caveat still applies:
+serves `text-embedding-3-small`). With both, the deployed loop is reliable AND the FULL GOVERNED PATH is proven: an
+in-cluster mesh pod (tenant demo-mode2) → gateway → adapter → Honcho:
+capture_incident (HTTP 200) → recall_incident (HTTP 200) returns the exact incident,
+and the gateway AUDITS both tool calls in the WORM (mcp.tool_call server=honcho).
+The black-box memory differentiator: proven, governed, audited, end-to-end. (Async caveat still applies:
 Honcho embeds on a delay, so recall-right-after-capture can miss; real use has the
 natural time gap between investigations.)
 
