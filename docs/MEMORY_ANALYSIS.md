@@ -69,16 +69,57 @@ services, and from which incident?"*):
 That answer was **synthesized from stored memory across a different session** —
 exactly the cross-incident continuity that's the point.
 
+### Deriver working with a structured-output model (real output)
+
+After pointing Honcho at **Claude Sonnet 5** (structured-output capable; free
+models return "zero observations"), the background deriver produces a real
+theory-of-mind representation. Verbatim excerpt from our cluster:
+
+> `## Explicit Observations`
+> `[…] sre-agent communicated a general rule that for JVM workloads, the`
+> `pod_memory_limit must exceed the JVM -Xmx by at least 40 percent.`
+> `[…] sre-agent identified the root cause of the OOMKills as a memory limit`
+> `misconfiguration in the deployment that occurred on 2026-07-10.`
+> `[…] sre-agent remedied the issue by raising the pod memory limit to 1Gi …`
+
+7 structured observations extracted from the raw findings — that's the value the
+deriver adds over a plain store.
+
 ### Honest operational notes (from the live run)
 - **Deterministic layer is rock-solid** and needs only Postgres.
-- **Dialectic works with any chat model** (we ran it on a free OpenRouter tier).
+- **Dialectic works with any chat model** (ran on a free OpenRouter tier).
 - **Deriver representations need a structured-output model** (`json_schema`).
-  Free-tier models reject it → "zero observations". Fix: point Honcho at a
-  structured-output-capable model (gpt-4o class, or set the deriver's
-  `structured_output_mode`). This is the one thing to configure for *full* value.
+  Free-tier models reject it → "zero observations". We use **Claude Sonnet 5**
+  ($2/$10 per 1M — cheaper than 4.5's $3/$15). This is the one thing to configure
+  for *full* value.
 - **v3.0.12 changed its config schema** to a deeply-nested per-level structure;
   older env-var overrides silently fall back to its default `gpt-5.4-mini`
-  (aliased in our litellm). Worth pinning explicitly per the new schema.
+  (aliased in our litellm to Sonnet 5). Worth pinning explicitly per the new schema.
+- **Cold-start:** semantic search + deriver are async — on a brand-new workspace,
+  recall right after capture can miss (embeddings not indexed yet) and the first
+  representation takes minutes. In real Leloir use this is a non-issue: capture
+  happens at investigation-complete and recall on a *later* alert, so the async
+  layers are always warm. Our warm-path manual runs pass all four operations.
+
+### Observability (implemented)
+- **No native Prometheus `/metrics` endpoint** (404) — a ServiceMonitor would have
+  nothing to scrape. Honcho's observability is its **telemetry emitter**
+  (CloudEvents over OTLP HTTP), off by default.
+- **Enabled + verified live:** `TELEMETRY_ENABLED=true` +
+  `TELEMETRY_ENDPOINT=http://alloy.monitoring.svc:4318` → Honcho emits to the
+  cluster's **Grafana Alloy** collector (→ Prometheus/Tempo). Chart values
+  `telemetry.{enabled,endpoint}` + role defaults; emitter confirmed started, no
+  export errors.
+- **Follow-up:** an Alloy pipeline to translate Honcho's CloudEvents envelope into
+  Prometheus metrics / Tempo traces (collector-side config).
+
+### Real benchmark harness
+`leloir/scripts/bench-memory.sh` measures the four memory operations Leloir relies
+on (CAPTURE / RECALL / SYNTHESIZE / DERIVE) against a backend, with real latency +
+correctness, structured to add mem0/zep/letta. Live Honcho numbers (warm path):
+CAPTURE ~45 ms, SYNTHESIZE ~14–19 s (dialectic, correct), DERIVE background with
+Sonnet 5. Cold-start caveat applies (§ operational notes) — the harness reflects
+that the async layers need warm-up, which real Leloir usage always has.
 
 ---
 
@@ -114,6 +155,12 @@ investigation starts cold; the black-box agent is amnesiac by construction.
 ---
 
 ## 4. Framework comparison (metrics + recommendation)
+
+> **Honesty note:** only **Honcho is deployed and live-tested on our cluster**
+> (§2). mem0 / Zep / Letta are **NOT installed** — their rows below are
+> **desk research** from each project's public material and benchmarks, not
+> head-to-head measurements here. A real head-to-head would require deploying
+> them on the same incident corpus (tracked as a follow-up).
 
 All are **OSS and self-hostable** → no forced vendor lock. "Paid" columns are the
 optional managed/enterprise tiers, not a requirement.
