@@ -107,7 +107,7 @@ network-security extras.
 | vcluster (ephemeral eval) | ✅ Proven | See [EVALUATION.md](EVALUATION.md) |
 | EKS / GKE / AKS | 🗓 Planned (verify) | No known blockers; unproven |
 | **arm64** | ✅ Proven | Reference cluster is ARM |
-| **amd64** | 🟡 **Build OK, push blocked** | Native amd64 build works in CI (~2 min, no QEMU); push to GHCR blocked on an expired `GHCR_PAT` secret (needs refresh with `write:packages`). Multi-arch manifest deferred to post-public (free arm64 runners) |
+| **amd64** | ✅ Proven | Native amd64 build in CI (~2 min, no QEMU) pushed to `ghcr.io/villadalmine/leloir-controlplane:amd64`. Unified multi-arch manifest (amd64+arm64 under one tag) deferred to post-public (free arm64 runners) |
 
 ## GitOps / packaging
 
