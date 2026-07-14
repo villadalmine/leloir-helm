@@ -37,6 +37,7 @@ REQUIRED=(
   "antiThrashing:gateway anti-thrash + escalation"
   "spendVelocityUSD:anomaly detector threshold"
   "embeddingModel:RAG episodic memory"
+  "honcho-mcp:adaptador Honcho black-box (memory.honcho)"
 )
 
 check_token() {
