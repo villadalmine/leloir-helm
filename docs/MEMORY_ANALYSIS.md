@@ -138,11 +138,20 @@ services, and from which incident?"*):
 That answer was **synthesized from stored memory across a different session** —
 exactly the cross-incident continuity that's the point.
 
-### Deriver working with a structured-output model (real output)
+### Deriver — honest status (model attribution NOT verified)
 
-After pointing Honcho at **Claude Sonnet 5** (structured-output capable; free
-models return "zero observations"), the background deriver produces a real
-theory-of-mind representation. Verbatim excerpt from our cluster:
+> **Integrity note (14/07):** we pointed Honcho's model alias at Claude Sonnet 5,
+> and a representation WITH observations was produced at one point (excerpt below).
+> **BUT we could not tie the deriver's generation to a traceable Sonnet-5 call**,
+> and a fresh deriver run later did **not complete** (queue stuck at 0/1, no LLM
+> call fired). So: the alias→Sonnet-5 *route* is proven (manual calls visible in
+> OpenRouter); the *deriver's actual model usage* is **not verified** and the
+> background deriver may be unreliable on this setup. This ambiguity is itself the
+> **governance finding** (§ below): without per-call model traceability, even an
+> operator with full access can't confirm which model a component used. Treat the
+> excerpt as "observations were generated"; do NOT treat it as "confirmed Sonnet 5".
+
+Representation excerpt (produced at some point; model unconfirmed):
 
 > `## Explicit Observations`
 > `[…] sre-agent communicated a general rule that for JVM workloads, the`
@@ -347,13 +356,20 @@ filled in as each backend is deployed in infra-ai (`make honcho|letta|mem0`).
 | SYNTHESIZE | ✅ ~14–19 s, correct | ✅ ~38 s (agent multi-step) | n/a (returns memories, not NL) | n/a |
 | DERIVE | ✅ w/ Sonnet 5 (7 observations) | n/a (agent self-edits, no bg deriver) | n/a | n/a |
 
-**mem0 deployment finding (real):** deployed (API + Postgres), but the official
-`mem0/mem0-api-server:latest` image **does not bundle `psycopg`**, so the
-**pgvector** backend fails at startup (`ImportError: Neither 'psycopg' nor
-'psycopg2'`). mem0's default vector store is **Qdrant** — running it self-hosted
-with our Postgres would need a custom image (add psycopg) or deploying Qdrant as a
-4th component. This **confirms §5: mem0 is the heaviest of the three to self-host.**
-Role is ready (`make mem0`); switching it to Qdrant is a follow-up.
+**mem0 deployment finding (real — two concrete blockers hit):** deployed (API +
+Postgres + Qdrant), but:
+1. the official `mem0/mem0-api-server:latest` image **does not bundle `psycopg`**,
+   so the **pgvector** backend fails at startup (`ImportError: Neither 'psycopg' nor
+   'psycopg2'`);
+2. we deployed **Qdrant v1.18.2** and pointed the config at it, but the server
+   **still tries to load pgvector** — its config-injection (`MEM0_CONFIG_PATH`) did
+   not take effect, so it falls back to a default that needs psycopg.
+This is real, measured **self-host friction**: mem0's OSS server needs a custom
+image (add psycopg) and/or the server-specific config mechanism figured out. It
+**confirms §5: mem0 is by far the heaviest of the three to self-host** — a strong
+data point for the recommendation. Role + Qdrant are ready (`make mem0`); making
+the server actually read the Qdrant config is a follow-up. Honcho and Letta both
+booted and served; mem0 fought back at every step.
 
 **What the numbers say (Honcho vs Letta, both live-tested):**
 - **Honcho is lighter & faster.** CAPTURE is a ~45 ms deterministic write (embedding
