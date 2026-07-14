@@ -487,6 +487,59 @@ native MCP-native memory (covers 80% with zero friction), offer Honcho via a
 documented adapter for the peer-modeling 20%. For the black-box demo, the adapter
 is the concrete next build (designed in the native-memory spec §Adapter).
 
+## 6.9 What the MEASURED matrix decides for Leloir's future (the strategic verdict)
+
+> **Read this section through one lens: everything here runs through Leloir's CORE
+> components** — the per-tenant MCP facade (the ONLY tool path), the WORM audit,
+> tenant scoping, the `MCPServer` CRD slot, and the tenant's LLM broker/budget.
+> A memory benchmark detached from those seams would be building on air; this one
+> is evidence about the product because every capture/recall/synthesis crossed the
+> governed facade and landed in the audit.
+
+The 14/07 head-to-head (§2) is not a tooling shoot-out — it fixes four product
+decisions:
+
+**1. The native episodic shape WINS for incident memory (validated by contrast).**
+Leloir's native RAG stores the triangle `alert → root cause → remediation` **bound
+to the incident id**. mem0 — measured — atomizes into paraphrased facts and the id
+lands in a *different* fact than the rule: the incident↔lesson link that Leloir's
+audit needs for citation degrades. And mem0 pays an LLM call on EVERY write (~10 s);
+the native capture (local embedder) costs $0 LLM and milliseconds. **Decision: the
+native layer stays the zero-friction default; no need to buy complexity for the
+80% case.**
+
+**2. Memory synthesis must be SERVER-SIDE (a facade tool), never agent-side.**
+Letta — measured — could not reach its own archival memory in-chat even when asked
+explicitly; Honcho's server-side dialectic answered correctly citing rule +
+incident. For Leloir this settles an architecture point: synthesis is offered as a
+**governed tool of the facade** (the memory server resolves it), so even a contained
+black-box agent gets it without needing to "know how to search". That is the
+differentiator, and it is now measured, not asserted.
+
+**3. Memory is a GOVERNED LLM CONSUMER like any other — not a special case.**
+The deriver/dialectic need a strong model (free tier: **zero** observations;
+Sonnet: 9–11 — measured) and that consumption is real money ($0.046 per full
+Honcho cycle). Leloir's existing core already covers this: the tenant's
+ModelProvider/llmBroker decides the model, the TenantBudget meters it, per-consumer
+keys make every call attributable. **Decision: memory backends get budgeted and
+attributed exactly like agents do.**
+
+**4. The `MCPServer` slot stays open; the recommendation gets teeth.**
+Honcho: 4/4 measured → ships as the reference (`memory.honcho.enabled`). Letta:
+lightest infra, archival API sound, agent-synthesis broken in 0.16.8 → viable for
+scratch memory, not for synthesis. mem0: 8 blockers to first boot, runs only with
+a runtime patch → not a recommendable default (still pluggable — your call). Zep:
+platform SaaS-only → out for self-host. **The customer chooses; we now recommend
+from measurements.**
+
+### What a customer enables (chart-level guidance)
+
+| You want | Enable | Requires |
+|---|---|---|
+| Auto-runbook + scratch memory (80% case) | nothing — native RAG + memory-mcp are on by default | Leloir's own Postgres (already there) |
+| Cross-incident synthesis + per-entity continuity (the "brain") | `memory.honcho.enabled: true` + register the `honcho` server per-tenant | external Honcho + a STRONG model for its deriver (free tiers derive zero — measured) + its own budgeted key |
+| A different brain (Letta/mem0/Cognee/…) | register it as an `MCPServer` | same governed slot; see §2 measured pains before you pick |
+
 ## 7. Follow-ups
 - Point Honcho's deriver at a structured-output-capable model → unlock full
   representations; re-measure.
