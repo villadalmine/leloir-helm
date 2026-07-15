@@ -1,4 +1,4 @@
-# Chaos/Resilience experiments — AUTO-GENERADOS del knowledge-graph (2026-07-15 11:53 UTC)
+# Chaos/Resilience experiments — AUTO-GENERADOS del knowledge-graph (2026-07-15 20:13 UTC)
 
 > Del grafo, no a mano. Corren con chaos-k8s (ya existe) contra un tenant efímero.
 
@@ -43,6 +43,7 @@
 | guard/tenant-isolation | acceso cross-tenant | recall/audit scoped por tenant; cross-tenant = 404 (NO 403: no revelar existencia) |
 | guard/budget-4layer | sobregasto de tokens/USD | BudgetExceededError al exceder tokens/USD/tool-calls |
 | guard/hitl-approval | acción riesgosa sin aprobación | acción riesgosa → pending → resume approve/reject |
+| guard/a2a-delegation | delegación A2A no autorizada (canInvoke) | canInvoke permite/deniega; depth+fanout capados; budget = min de 4 |
 | guard/containment-egress | escape de un black-box (llamada cluster-scope) | egress-lock fuerza al gateway; cluster-scope = Forbidden |
 | guard/hardening-mtls | tráfico sin encriptar al control plane | gateway→CP :8090 solo por mTLS SPIFFE |
 | guard/hardening-netpol | ingress externo al listener interno | listener interno cerrado por CNP; ingress externo denegado |
