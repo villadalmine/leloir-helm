@@ -1,7 +1,7 @@
-<!-- AUTO-GENERADO por scripts/matrix-coverage.sh (v2, knowledge-graph). 2026-07-15 11:53 UTC -->
+<!-- AUTO-GENERADO por scripts/matrix-coverage.sh (v2, knowledge-graph). 2026-07-15 18:50 UTC -->
 # Coverage matrix — feature × CONTRATO × substrato (MEASURED, agnóstico)
 
-> Auto-generada el **2026-07-15 11:53 UTC** desde `deploy/knowledge-graph.yaml` cruzado con deps VIVAS +
+> Auto-generada el **2026-07-15 18:50 UTC** desde `deploy/knowledge-graph.yaml` cruzado con deps VIVAS +
 > agentes gobernados. Modelo agnóstico: el feature requiere un CONTRATO; el vendor es
 > intercambiable. `blocked` = ningún vendor del contrato vivo. Nada a mano.
 
@@ -12,7 +12,7 @@
 | Feature | Costura | Requiere contrato | Substrato | test-status | Estado medido | Métrica |
 |---|---|---|---|---|---|---|
 | alert-routing | Trigger | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | alerta → investigación creada + ruteada al agente correcto |
-| tenant-isolation | RBAC | persistence | any | unit | ✅ live (5 agente/s gobernado/s) | recall/audit scoped por tenant; cross-tenant = 404 (NO 403: no revelar existencia) |
+| tenant-isolation | RBAC | persistence | any | e2e-chaos | ✅ live (5 agente/s gobernado/s) | recall/audit scoped por tenant; cross-tenant = 404 (NO 403: no revelar existencia) |
 | budget-4layer | LLM | llm-openai-compat, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | BudgetExceededError al exceder tokens/USD/tool-calls |
 | llm-metering-real | LLM | llm-openai-compat, observability-otlp | standalone-cluster | e2e-happy | ✅ live (5 agente/s gobernado/s) | audit llm.call con real_model (no alias) + costo |
 | perTenant-keys | LLM | llm-openai-compat | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | virtual key del tenant provista cross-ns; metering per-key |
