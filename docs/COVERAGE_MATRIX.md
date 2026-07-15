@@ -1,43 +1,44 @@
-<!-- AUTO-GENERADO por scripts/matrix-coverage.sh — NO editar a mano. 2026-07-15 08:17 UTC -->
-# Coverage matrix — feature × dependencia × capa (MEASURED)
+<!-- AUTO-GENERADO por scripts/matrix-coverage.sh (v2, knowledge-graph). 2026-07-15 11:53 UTC -->
+# Coverage matrix — feature × CONTRATO × substrato (MEASURED, agnóstico)
 
-> Auto-generada el **2026-07-15 08:17 UTC** cruzando `deploy/capabilities.yaml` contra las
-> dependencias VIVAS del cluster y los agentes gobernados medidos. Dice, por
-> cada feature de CRD: qué infra necesita, en qué capa se prueba, y si está
-> full-testeable AHORA. Regla: nada se afirma sin la dependencia presente.
+> Auto-generada el **2026-07-15 11:53 UTC** desde `deploy/knowledge-graph.yaml` cruzado con deps VIVAS +
+> agentes gobernados. Modelo agnóstico: el feature requiere un CONTRATO; el vendor es
+> intercambiable. `blocked` = ningún vendor del contrato vivo. Nada a mano.
 
-**Dependencias vivas en esta corrida:** cilium=✅, spire=✅, litellm=✅, litellm-operator=✅, honcho=✅, otel=✅, prometheus=✅, external-sink=❌, chat-webhook=❌
+**Contratos satisfechos:** agent-adapter=✅, mcp-transport=✅, llm-openai-compat=✅, gateway-api=✅, cni-netpol-mtls=✅, observability-otlp=✅, notification-sink=❌, audit-sink=❌, persistence=✅
 
-**Resumen:** 21 testeable-live · 0 dep-ok sin agente · 2 blocked por dep ausente
+**Resumen:** 21 testeable-live · 2 blocked por contrato/dep ausente
 
-| Feature | CRD / flag | Dependencia | Capa | Estado medido | Métrica (la aserción) |
-|---|---|---|---|---|---|
-| alert-routing | AlertRoute | none | A | ✅ testeable-live (5 agente/s) | alerta a investigacion creada + ruteada al agente correcto |
-| tenant-isolation | Tenant | none | A | ✅ testeable-live (5 agente/s) | recall/audit scoped por tenant; cross-tenant = 403 |
-| budget-4layer | TenantBudget | none | A | ✅ testeable-live (5 agente/s) | BudgetExceededError al exceder tokens/USD/tool-calls |
-| llm-metering-real | TenantBudget-ModelProvider | litellm, otel | B | ✅ testeable-live (5 agente/s) | audit llm.call con real_model (no alias) + costo (G3) |
-| perTenant-keys | AgentRegistration-llmKeyFrom | litellm-operator | B | ✅ testeable-live (1 agente/s) | virtual key del tenant provista cross-ns; metering per-key |
-| hitl-approval | ApprovalPolicy | none | A | ✅ testeable-live (5 agente/s) | accion riesgosa a pending a resume approve/reject |
-| a2a-delegation | AgentRegistration-canInvoke | none | A | ✅ testeable-live (5 agente/s) | canInvoke permite/deniega; depth+fanout capados |
-| tools-via-gateway | MCPServer | none | A | ✅ testeable-live (5 agente/s) | tool call auditada en el gateway (WORM), caller_agent set |
-| memory-rag | RAG-spec-m22 | none | A | ✅ testeable-live (5 agente/s) | auto-runbook: alerta repetida recupera resolucion previa |
-| memory-mcp | MCPServer-memory | none | A | ✅ testeable-live (5 agente/s) | remember/recall/forget por tenant, aislado |
-| memory-honcho | MCPServer-honcho | honcho, litellm | B | ✅ testeable-live (1 agente/s) | black-box recuerda por la fachada; recall HIT medido |
-| containment-egress | AgentRegistration-containment | litellm, cilium | B | ✅ testeable-live (1 agente/s) | egress-lock fuerza al gateway; cluster-scope = Forbidden |
-| hardening-mtls | chart-hardening-mtls | cilium, spire | B | ✅ testeable-live (5 agente/s) | gateway a CP :8090 solo por mTLS SPIFFE |
-| hardening-netpol | chart-hardening-networkPolicies | cilium | B | ✅ testeable-live (5 agente/s) | listener interno cerrado por CNP; ingress externo denegado |
-| skillsource | SkillSource | none | A | ✅ testeable-live (5 agente/s) | configmap/git a SkillRef inyectado al prompt (git fail-closed sin concesion) |
-| scheduled-inv | ScheduledInvestigation | none | A | ✅ testeable-live (5 agente/s) | cron dispara investigacion por el mismo pipeline |
-| shadow-mode | AgentRegistration-shadow | none | A | ✅ testeable-live (5 agente/s) | accion interceptada; respuesta opaca; evento shadowed en audit |
-| quarantine | anomaly-quarantine | none | A | ✅ testeable-live (5 agente/s) | thrash a quarantine; auto-release por cooldown |
-| audit-worm | audit | none | A | ✅ testeable-live (5 agente/s) | cada evento append-only; query por tenant/investigacion |
-| audit-siem | audit-streaming | external-sink | B | ⛔ blocked (dep ausente: external-sink) | eventos forwarded al sink; fail-open si muerto |
-| notifications | NotificationChannel | chat-webhook | B | ⛔ blocked (dep ausente: chat-webhook) | evento de ciclo de vida despachado; filtros por ruta/evento/outcome |
-| metrics-dashboards | observability | prometheus | B | ✅ testeable-live (5 agente/s) | cada panel Grafana se popula con data real |
-| scorecard-honesty | investigation | none | A | ✅ testeable-live (5 agente/s) | off-radar/coverage/drift reportados honesto (no fingido) |
+| Feature | Costura | Requiere contrato | Substrato | test-status | Estado medido | Métrica |
+|---|---|---|---|---|---|---|
+| alert-routing | Trigger | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | alerta → investigación creada + ruteada al agente correcto |
+| tenant-isolation | RBAC | persistence | any | unit | ✅ live (5 agente/s gobernado/s) | recall/audit scoped por tenant; cross-tenant = 404 (NO 403: no revelar existencia) |
+| budget-4layer | LLM | llm-openai-compat, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | BudgetExceededError al exceder tokens/USD/tool-calls |
+| llm-metering-real | LLM | llm-openai-compat, observability-otlp | standalone-cluster | e2e-happy | ✅ live (5 agente/s gobernado/s) | audit llm.call con real_model (no alias) + costo |
+| perTenant-keys | LLM | llm-openai-compat | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | virtual key del tenant provista cross-ns; metering per-key |
+| hitl-approval | Tools | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | acción riesgosa → pending → resume approve/reject |
+| a2a-delegation | Trigger | agent-adapter, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | canInvoke permite/deniega; depth+fanout capados; budget = min de 4 |
+| tools-via-gateway | Tools | mcp-transport, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | tool call auditada en el gateway (WORM), caller_agent set |
+| memory-rag | Tools | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | auto-runbook: alerta repetida recupera resolución previa |
+| memory-mcp | Tools | mcp-transport, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | remember/recall/forget por tenant, aislado |
+| memory-honcho | Tools | mcp-transport | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | black-box recuerda por la fachada; recall HIT medido |
+| containment-egress | Tools | cni-netpol-mtls, llm-openai-compat | standalone-cluster | e2e-happy | ✅ live (5 agente/s gobernado/s) | egress-lock fuerza al gateway; cluster-scope = Forbidden |
+| hardening-mtls | RBAC | cni-netpol-mtls | standalone-cluster | unit | ✅ live (5 agente/s gobernado/s) | gateway→CP :8090 solo por mTLS SPIFFE |
+| hardening-netpol | RBAC | cni-netpol-mtls | standalone-cluster | unit | ✅ live (5 agente/s gobernado/s) | listener interno cerrado por CNP; ingress externo denegado |
+| skillsource | Trigger | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | configmap/git → SkillRef inyectado al prompt (git fail-closed sin concesión) |
+| scheduled-inv | Trigger | persistence | any | unit | ✅ live (5 agente/s gobernado/s) | cron dispara investigación por el mismo pipeline |
+| shadow-mode | Tools | mcp-transport, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | acción interceptada; respuesta opaca; evento shadowed en audit |
+| quarantine | Outcome | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | thrash → quarantine; auto-release por cooldown |
+| audit-worm | Outcome | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | cada evento append-only; query por tenant/investigación |
+| audit-siem | Outcome | audit-sink | external | not-tested | ⛔ blocked (falta: audit-sink, siem-sink) | eventos forwarded al sink; fail-open si muerto |
+| notifications | Outcome | notification-sink | external | unit | ⛔ blocked (falta: notification-sink, chat-webhook) | evento de ciclo de vida despachado; filtros por ruta/evento/outcome |
+| metrics-dashboards | Outcome | observability-otlp | standalone-cluster | e2e-happy | ✅ live (5 agente/s gobernado/s) | cada panel Grafana se popula con data real |
+| scorecard-honesty | Outcome | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | off-radar/coverage/drift reportados honesto (no fingido) |
 
 ## Cómo leerla
 
-- **Capa A** (dependency=none): el core libre — testeable en CUALQUIER cluster (kind aislado). ES lo que instala el customer.
-- **Capa B** (dep externa/Cilium): integración — sólo con la dep presente. En un cluster sin Cilium, `hardening-*` aparece ⛔ correctamente (el customer sin Cilium tampoco lo usa).
-- **⛔ blocked ≠ roto:** es honestidad — la feature necesita una dep que este cluster no tiene. El mapa = OPTIONALITY_MATRIX.
+- **Requiere contrato** (no vendor): la costura agnóstica. Un contrato core (agent-adapter,
+  mcp-transport) siempre está; uno con vendors externos (llm-openai-compat, cni-netpol-mtls)
+  está satisfecho si ≥1 implementación vive → **si swapeás el vendor, la governance sigue.**
+- **test-status** es el nivel REAL alcanzado (not-tested<unit<e2e-happy<e2e-chaos). 'Completado'
+  en STATUS = e2e-chaos (el fallo se inyectó y el guard actuó). Hoy 0 en e2e-chaos → honesto.
