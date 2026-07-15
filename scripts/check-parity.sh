@@ -38,6 +38,7 @@ REQUIRED=(
   "spendVelocityUSD:anomaly detector threshold"
   "embeddingModel:RAG episodic memory"
   "honcho-mcp:adaptador Honcho black-box (memory.honcho)"
+  "notificationchannels:CRD NotificationChannel + spec.events (Q4 wiring)"
 )
 
 check_token() {
