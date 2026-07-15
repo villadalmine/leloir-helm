@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # cosign keyless (Fulcio/Rekor)
     steps:
       - uses: actions/checkout@v4
 
@@ -26,11 +27,22 @@ jobs:
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Package & push chart (OCI)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Package, push & sign chart (OCI)
         run: |
           cd charts/leloir
           helm dependency build
           helm package .
           CHART_TGZ=$(ls leloir-*.tgz | head -1)
           echo "Pushing $CHART_TGZ → oci://ghcr.io/${{ github.repository_owner }}"
-          helm push "$CHART_TGZ" "oci://ghcr.io/${{ github.repository_owner }}"
+          OUT=$(helm push "$CHART_TGZ" "oci://ghcr.io/${{ github.repository_owner }}" 2>&1)
+          echo "$OUT"
+          REF=$(echo "$OUT" | sed -n 's/^Pushed: \(.*\)/\1/p')
+          DIGEST=$(echo "$OUT" | sed -n 's/^Digest: \(.*\)/\1/p')
+          # Firma keyless del chart publicado. Verificable por cualquier usuario:
+          #   cosign verify ghcr.io/villadalmine/leloir@<digest> \
+          #     --certificate-identity-regexp 'github.com/villadalmine/leloir-helm' \
+          #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cosign sign --yes "${REF%%:*}@${DIGEST}"
