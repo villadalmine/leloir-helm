@@ -1,0 +1,55 @@
+name: Chart CI
+
+# Fase 1 del loop E2E (docs/sales-demo-and-e2e-strategy.md §4, repo leloir):
+# validación BARATA en cada PR, sin cluster — atrapa el 80% de las roturas del
+# chart en segundos. Fases 2-4 (kind smoke, e2e funcional con key demo capped,
+# mode2) están documentadas en ese plan y requieren decisión del owner
+# (minutos de CI + secret de key LLM con cap).
+
+on:
+  pull_request:
+    paths: ['charts/**', 'scripts/check-parity.sh']
+  push:
+    branches: [main]
+    paths: ['charts/**', 'scripts/check-parity.sh']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  lint-template-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+
+      - name: helm lint
+        run: |
+          helm dependency update charts/leloir
+          helm lint charts/leloir
+
+      - name: helm template (defaults)
+        run: helm template leloir charts/leloir >/dev/null
+
+      - name: helm template (feature flags ON)
+        # Renderiza con los opcionales encendidos — atrapa templates rotos que
+        # los defaults (off) esconden (lección 14/07: honcho-mcp, hardening).
+        run: |
+          helm template leloir charts/leloir \
+            --set memory.honcho.enabled=true \
+            --set containment.enabled=true \
+            --set containment.llmHost=litellm.example.svc \
+            --set hardening.mtls.enabled=true \
+            --set hardening.networkPolicies.enabled=true \
+            --set gateway_api.enabled=true \
+            --set gateway_api.parentRefName=gw \
+            --set gateway_api.parentRefNamespace=default \
+            --set audit.streaming.endpoint=http://sink.example/audit \
+            >/dev/null
+
+      - name: parity check (el chart no pierde features del deploy de referencia)
+        run: bash scripts/check-parity.sh
