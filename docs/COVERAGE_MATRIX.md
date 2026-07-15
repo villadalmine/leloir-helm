@@ -1,7 +1,7 @@
-<!-- AUTO-GENERADO por scripts/matrix-coverage.sh (v2, knowledge-graph). 2026-07-15 18:53 UTC -->
+<!-- AUTO-GENERADO por scripts/matrix-coverage.sh (v2, knowledge-graph). 2026-07-15 18:56 UTC -->
 # Coverage matrix — feature × CONTRATO × substrato (MEASURED, agnóstico)
 
-> Auto-generada el **2026-07-15 18:53 UTC** desde `deploy/knowledge-graph.yaml` cruzado con deps VIVAS +
+> Auto-generada el **2026-07-15 18:56 UTC** desde `deploy/knowledge-graph.yaml` cruzado con deps VIVAS +
 > agentes gobernados. Modelo agnóstico: el feature requiere un CONTRATO; el vendor es
 > intercambiable. `blocked` = ningún vendor del contrato vivo. Nada a mano.
 
@@ -24,7 +24,7 @@
 | memory-honcho | Tools | mcp-transport | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | black-box recuerda por la fachada; recall HIT medido |
 | containment-egress | Tools | cni-netpol-mtls, llm-openai-compat | standalone-cluster | e2e-chaos | ✅ live (5 agente/s gobernado/s) | egress-lock fuerza al gateway; cluster-scope = Forbidden |
 | hardening-mtls | RBAC | cni-netpol-mtls | standalone-cluster | unit | ✅ live (5 agente/s gobernado/s) | gateway→CP :8090 solo por mTLS SPIFFE |
-| hardening-netpol | RBAC | cni-netpol-mtls | standalone-cluster | unit | ✅ live (5 agente/s gobernado/s) | listener interno cerrado por CNP; ingress externo denegado |
+| hardening-netpol | RBAC | cni-netpol-mtls | standalone-cluster | e2e-chaos | ✅ live (5 agente/s gobernado/s) | listener interno cerrado por CNP; ingress externo denegado |
 | skillsource | Trigger | persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | configmap/git → SkillRef inyectado al prompt (git fail-closed sin concesión) |
 | scheduled-inv | Trigger | persistence | any | unit | ✅ live (5 agente/s gobernado/s) | cron dispara investigación por el mismo pipeline |
 | shadow-mode | Tools | mcp-transport, persistence | any | e2e-happy | ✅ live (5 agente/s gobernado/s) | acción interceptada; respuesta opaca; evento shadowed en audit |
