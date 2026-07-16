@@ -40,6 +40,57 @@ data:
       {{- if .Values.gateway.enabled }}
       endpoint: "http://{{ include "leloir.gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8082"
       {{- end }}
+    {{- if .Values.llm.enabled }}
+    # ─── LLM layer ────────────────────────────────────────────────────────────
+    # El broker enruta las llamadas de los agentes a tu endpoint LLM y las gobierna
+    # (budget/metering/audit). api-key vía LELOIR_LLM_UPSTREAM_KEY (Secret), nunca acá.
+    llmBroker:
+      driver: {{ .Values.llm.driver | quote }}
+      spendPollInterval: 30s
+      {{- if eq .Values.llm.driver "builtin" }}
+      # El endpoint debe ser un proxy OpenAI-compatible que maneje la auth upstream
+      # (p.ej. litellm con las keys de tus proveedores). Ver docs/OIDC_SETUP + proposal §m15.
+      builtin:
+        endpoint: {{ .Values.llm.endpoint | quote }}
+      {{- end }}
+    modelProvider:
+      models:
+        - id: {{ .Values.llm.model.id | quote }}
+          upstream: {{ .Values.llm.model.upstream | quote }}
+          pricing: {inputPer1M: {{ .Values.llm.model.pricing.inputPer1M }}, outputPer1M: {{ .Values.llm.model.pricing.outputPer1M }}}
+          maxTokensPerCall: {{ .Values.llm.model.maxTokensPerCall }}
+      routing: {default: {{ .Values.llm.model.id | quote }}}
+    tenantBudgets:
+      - tenantID: default
+        monthlyMaxUSD: {{ .Values.llm.tenantBudget.monthlyMaxUSD }}
+        hardLimitAction: {{ .Values.llm.tenantBudget.hardLimitAction }}
+    {{- if .Values.agents.flagship.enabled }}
+    # Agente flagship first-party. TOOLS reales vía MCPServer CRD / el gateway (no acá).
+    agents:
+      - name: leloir-agent
+        type: leloir-agent
+        tenantID: default
+        harness:
+          systemPrompt: |
+            You are the Leloir first-party incident responder. Diagnose the alert,
+            quote the concrete signal you relied on, and give a concise root cause
+            plus a concrete remediation. If you have tools, read logs/events before
+            concluding; do not fabricate actions you cannot verify.
+          loop: {maxIterations: 6}
+          model: {{ .Values.agents.flagship.model | quote }}
+          credentials: {from: llmBroker}
+    {{- end }}
+    {{- if .Values.routes.catchAll.enabled }}
+    routes:
+      - name: catch-all
+        tenantID: default
+        agentName: leloir-agent
+        enabled: true
+        priority: 1
+        budgetMaxUSD: {{ .Values.routes.catchAll.budgetMaxUSD }}
+        timeoutMinutes: 10
+    {{- end }}
+    {{- end }}
     anomaly:
       spendVelocityUSD: {{ .Values.anomaly.spendVelocityUSD }}
       autoReleaseCooldownMinutes: {{ .Values.anomaly.autoReleaseCooldownMinutes }}

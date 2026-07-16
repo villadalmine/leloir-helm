@@ -39,6 +39,45 @@ license:
 | `hardening.mtls.enabled` | `false` | mTLS SPIFFE (Mission Critical; requires Cilium) |
 | `rag.enabled` / `anomaly.*` | on | Team features (runtime gates them by license) |
 
+## LLM layer (required to investigate)
+
+Leloir governs agents that use an LLM — so it needs to reach one. Point it at any
+**OpenAI-compatible endpoint** (a litellm/vLLM proxy, Ollama's `/v1`, or a provider API).
+The chart ships a working default: the first-party **flagship agent** + a catch-all route,
+so a fresh install can investigate out of the box once you set the endpoint.
+
+```yaml
+llm:
+  enabled: true
+  driver: builtin                       # simplest; also: litellm-operator, envoy-ai-gw
+  endpoint: "http://litellm.svc:4000"   # your OpenAI-compatible proxy (handles upstream auth)
+  model:
+    id: default-model
+    upstream: "gpt-4o-mini"             # the model name your endpoint exposes
+    pricing: {inputPer1M: 0.15, outputPer1M: 0.60}   # for metering/budget
+    maxTokensPerCall: 1024
+  tenantBudget: {monthlyMaxUSD: 50, hardLimitAction: reject}   # 4-layer budget guard
+
+agents:
+  flagship: {enabled: true, model: default-model}   # first-party agent; off = BYO-agent via CRD
+routes:
+  catchAll: {enabled: true, budgetMaxUSD: 0.50}      # every alert → flagship
+```
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `llm.driver` | `builtin` | `builtin` (point at an endpoint), `litellm-operator`, `envoy-ai-gw` |
+| `llm.endpoint` | `""` | OpenAI-compatible URL. Should handle upstream auth (e.g. litellm with your keys) |
+| `llm.model.upstream` | `gpt-4o-mini` | model name at your endpoint |
+| `llm.tenantBudget.monthlyMaxUSD` | `50` | per-tenant cap; the budget guard cancels investigations that exceed it |
+| `agents.flagship.enabled` | `true` | first-party agent; set `false` to bring your own via an `AgentRegistration` CRD |
+| `routes.catchAll.enabled` | `true` | catch-all route so alerts investigate out of the box |
+
+**BYO-agent:** Leloir's differentiator is the `AgentAdapter` contract — register HolmesGPT,
+k8sgpt, a kagent (via `type: a2a`), or your own with an `AgentRegistration` CRD, and it's
+governed the same way. Set `agents.flagship.enabled=false` and add your `AgentRegistration`.
+**Tools** (real cluster reads, etc.) are added via `MCPServer` CRDs through the gateway.
+
 ## Authentication (OIDC / SSO)
 
 By default the chart runs in **single-user** mode (a static local admin — fine for

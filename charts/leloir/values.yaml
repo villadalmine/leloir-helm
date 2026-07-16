@@ -107,6 +107,43 @@ memory:
 webhookReceiver:
   enabled: true
 
+# ─── LLM layer (REQUIRED to investigate) ──────────────────────────────────────
+# Leloir gobierna agentes que usan un LLM. Traé tu proxy OpenAI-compatible (litellm,
+# vLLM, Ollama con /v1, o la API de un proveedor) y Leloir enruta+gobierna las llamadas.
+# El clientSecret/api-key NUNCA va acá — se inyecta por Secret (llm.apiKeySecret).
+llm:
+  enabled: true
+  # driver: builtin (el más simple — apunta directo a un endpoint OpenAI-compatible),
+  # litellm-operator, o envoy-ai-gw (avanzados, ver docs/proposal §m15). builtin p/empezar.
+  driver: builtin
+  endpoint: ""                # e.g. "http://litellm.svc.cluster.local:4000" — tu proxy LLM
+  apiKeySecret: ""            # Secret con key `api-key` (inyectado como env). "" = sin auth
+  # El modelo que se expone a los agentes. `upstream` = el nombre del modelo en tu endpoint.
+  model:
+    id: "default-model"
+    upstream: "gpt-4o-mini"
+    pricing: {inputPer1M: 0.15, outputPer1M: 0.60}   # para el metering/budget (ajustá al tuyo)
+    maxTokensPerCall: 1024
+  # Budget por-tenant por defecto (4-capas: la governance corta al excederlo).
+  tenantBudget:
+    monthlyMaxUSD: 50
+    hardLimitAction: reject   # reject | notify-only
+
+# Agente flagship first-party (leloir-agent). ON por default → el chart produce un
+# control plane que YA puede investigar (razonamiento LLM). Las TOOLS reales (k8s, etc.)
+# se agregan por CRD MCPServer / el gateway — ver docs. Para BYO-agent, registrá el tuyo
+# con un AgentRegistration CRD (contrato AgentAdapter) y apagá este.
+agents:
+  flagship:
+    enabled: true
+    model: "default-model"    # debe existir en llm.model.id
+
+# Ruta catch-all → flagship, para que toda alerta se investigue out-of-the-box.
+routes:
+  catchAll:
+    enabled: true
+    budgetMaxUSD: 0.50
+
 # ─── Governance features (all free, on by default) ────────────────────────────
 rag:                        # Episodic RAG (free)
   enabled: true
