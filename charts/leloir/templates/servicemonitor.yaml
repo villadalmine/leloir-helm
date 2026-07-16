@@ -1,0 +1,51 @@
+{{- if .Values.observability.serviceMonitor.enabled }}
+# ServiceMonitor (Prometheus Operator). OFF por defecto — requiere el CRD
+# monitoring.coreos.com/v1. Poné labels que tu Prometheus seleccione, p.ej.
+# observability.serviceMonitor.labels: { release: kube-prometheus-stack }.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "leloir.controlplane.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    {{- with .Values.observability.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: leloir-controlplane
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- if or .Values.gateway.enabled .Values.gateway.externalEndpoint }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "leloir.gateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "leloir.labels" . | nindent 4 }}
+    {{- with .Values.observability.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: leloir-mcp-gateway
+  endpoints:
+    - port: http          # el gateway sirve /metrics en su puerto http (8082)
+      path: /metrics
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

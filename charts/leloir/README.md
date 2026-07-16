@@ -78,6 +78,29 @@ k8sgpt, a kagent (via `type: a2a`), or your own with an `AgentRegistration` CRD,
 governed the same way. Set `agents.flagship.enabled=false` and add your `AgentRegistration`.
 **Tools** (real cluster reads, etc.) are added via `MCPServer` CRDs through the gateway.
 
+### Advanced: integrating with pre-existing infra (BYO / power-user)
+
+The same **one chart** scales down to a beginner (canned flagship + bundled Postgres) and
+up to a power-user who already runs Postgres, an MCP gateway, and a 2-layer LLM stack
+(Envoy AI Gateway → litellm). See **`examples/values-advanced.yaml`** for a full example —
+this is exactly how the project's own homelab installs.
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `llm.driver: envoy-ai-gw` | — | per-tenant keyless chain (Envoy AI GW → litellm). Fill `llm.envoyAIGateway.*` + `llm.litellmOperator.*` |
+| `llm.driver: litellm-operator` | — | reconcile teams/keys on an existing `LiteLLMInstance`. Fill `llm.litellmOperator.*` |
+| `agents.raw` | `[]` | **replaces** the canned flagship with a full agent list — inline `tools`, multiple agents (e.g. `holmesgpt`), custom toolsets. The CP's real schema. |
+| `routes.raw` | `[]` | **replaces** the canned catch-all with full routes (custom `agentName`, `budgetMaxTokens`, …) |
+| `gateway.enabled: false` + `gateway.externalEndpoint` | — | don't deploy the gateway; point the CP at an existing one |
+| `postgresql.enabled: false` + `externalDatabase.existingSecret` | — | use your own Postgres via a DSN Secret |
+| `observability.serviceMonitor.enabled` | `false` | Prometheus-Operator `ServiceMonitor` for the CP + gateway (set `.labels` so your Prometheus selects it) |
+| `observability.dashboards.enabled` | `false` | ship the Leloir Grafana dashboards as sidecar ConfigMaps |
+| `observability.otlp.enabled` + `.endpoint` | `false` | OTLP tracing (real-model traceability) to your collector |
+
+`agents.raw`/`routes.raw` exist because agents and routes are inherently free-form (arbitrary
+tools, multiple agents). Beginners use the canned `flagship`/`catchAll`; power-users pass the
+real config through. **Either way it's one chart** — no forked "homelab" variant.
+
 ## Authentication (OIDC / SSO)
 
 By default the chart runs in **single-user** mode (a static local admin — fine for

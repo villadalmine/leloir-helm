@@ -81,6 +81,9 @@ controlPlane:
 # ─── MCP Gateway (the only path to tools) ─────────────────────────────────────
 gateway:
   enabled: true
+  # Si el gateway ya lo despliega otro pipeline (p.ej. Ansible en el homelab), poné
+  # enabled:false y seteá externalEndpoint al Service existente. El CP apunta ahí.
+  externalEndpoint: ""        # e.g. http://leloir-mcp-gateway.leloir.svc.cluster.local:8082
   replicas: 1
   resources:
     requests: {cpu: "50m", memory: "128Mi"}
@@ -116,8 +119,27 @@ llm:
   # driver: builtin (el más simple — apunta directo a un endpoint OpenAI-compatible),
   # litellm-operator, o envoy-ai-gw (avanzados, ver docs/proposal §m15). builtin p/empezar.
   driver: builtin
+  spendPollInterval: 30s
   endpoint: ""                # e.g. "http://litellm.svc.cluster.local:4000" — tu proxy LLM
   apiKeySecret: ""            # Secret con key `api-key` (inyectado como env). "" = sin auth
+  # ── Sólo para driver: litellm-operator | envoy-ai-gw (avanzado) ──────────────
+  # Reconciliación sobre un LiteLLMInstance (PalenaAI operator) ya desplegado.
+  # Vacío para driver builtin. Ver examples/values-oidc.yaml para un ejemplo real.
+  litellmOperator: {}
+    # namespace: ai
+    # instanceName: leloir-llm
+    # endpoint: http://leloir-llm.ai.svc.cluster.local:4000
+    # models: [claude-sonnet-5]
+  # ── Sólo para driver: envoy-ai-gw ────────────────────────────────────────────
+  # Cadena 2 capas por-tenant: Envoy AI Gateway (JWT keyless) → litellm.
+  envoyAIGateway: {}
+    # namespace: ai
+    # gatewayName: leloir-ai-gw
+    # endpoint: http://envoy-ai-<hash>.envoy-gateway-system.svc.cluster.local:80
+    # upstreamHost: leloir-llm.ai.svc.cluster.local
+    # upstreamPort: 4000
+    # tokensPerHour: 200000
+    # requireJWT: true
   # El modelo que se expone a los agentes. `upstream` = el nombre del modelo en tu endpoint.
   model:
     id: "default-model"
@@ -137,12 +159,21 @@ agents:
   flagship:
     enabled: true
     model: "default-model"    # debe existir en llm.model.id
+  # Passthrough completo (avanzado/BYO): si `raw` tiene items, REEMPLAZA al flagship y
+  # emite exactamente esta lista de agentes — con tools inline, múltiples agentes
+  # (holmesgpt, etc.), toolsets custom. Es el schema real del CP. Ver examples/values-oidc.yaml.
+  raw: []
 
 # Ruta catch-all → flagship, para que toda alerta se investigue out-of-the-box.
 routes:
   catchAll:
     enabled: true
+    agentName: "leloir-agent"   # qué agente atiende la ruta (p.ej. holmesgpt)
     budgetMaxUSD: 0.50
+    budgetMaxTokens: 0          # 0 = sin tope de tokens en la ruta
+    timeoutMinutes: 10
+  # Passthrough completo (avanzado): si `raw` tiene items, REEMPLAZA al catch-all.
+  raw: []
 
 # ─── Governance features (all free, on by default) ────────────────────────────
 rag:                        # Episodic RAG (free)
@@ -154,6 +185,33 @@ rag:                        # Episodic RAG (free)
 anomaly:                    # anomaly → quarantine (free)
   spendVelocityUSD: 0.50
   autoReleaseCooldownMinutes: 30
+
+# ─── Kubernetes access (para las tools de incidentes) ─────────────────────────
+# El CP lee pods/logs/events del cluster (vía el gateway + RBAC de rbac.create).
+kubernetes:
+  enabled: true
+
+# ─── Observability (métricas Prometheus + OTLP traces opcionales) ─────────────
+observability:
+  metrics:
+    enabled: true
+    port: 9091
+  # OTLP tracing (trazabilidad del modelo LLM real, spec-llm-traceability). Off por
+  # defecto; seteá endpoint a tu colector (p.ej. Tempo/Alloy) para activarlo.
+  otlp:
+    enabled: false
+    endpoint: ""            # e.g. http://alloy.observability.svc.cluster.local:4317
+  environment: ""          # etiqueta de entorno en las métricas/trazas (p.ej. homelab, prod)
+  # ServiceMonitor (Prometheus Operator) — scrapea el CP y el gateway. Requiere el CRD.
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}             # labels extra para que tu Prometheus lo seleccione (p.ej. release: kube-prometheus-stack)
+  # Dashboards de Grafana como ConfigMaps con el label grafana_dashboard (sidecar).
+  dashboards:
+    enabled: false
+    label: grafana_dashboard   # label que tu sidecar de Grafana busca
+    labelValue: "1"
 
 # ─── SIEM audit streaming (free) ──────────────────────────────────────────────
 # Forward every audit event (tool calls, approvals, budget, quarantine…) to an
@@ -222,6 +280,12 @@ auth:
     enabled: false
     issuer: ""
     clientID: ""
+    redirectURL: ""        # e.g. https://leloir.example.com/auth/callback ("" = default del CP)
+    scopes:                # scopes OIDC pedidos al IdP
+      - openid
+      - email
+      - profile
+      - groups
     # clientSecret via existingSecret (never in values).
     existingSecret: ""
     adminEmails: []         # emails granted the admin role

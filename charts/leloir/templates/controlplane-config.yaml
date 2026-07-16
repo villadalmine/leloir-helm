@@ -23,10 +23,16 @@ data:
         issuer: {{ .Values.auth.oidc.issuer | quote }}
         clientId: {{ .Values.auth.oidc.clientID | quote }}
         # clientSecret via LELOIR_OIDC_CLIENT_SECRET (Secret).
+        {{- with .Values.auth.oidc.redirectURL }}
+        redirectURL: {{ . | quote }}
+        {{- end }}
         {{- if .Values.auth.oidc.caSecret }}
         # Trust the issuer's private CA (e.g. Dex behind an in-cluster gateway with
         # a homelab CA). Mounted from auth.oidc.caSecret. See docs/OIDC_SETUP.md.
         caFile: /etc/leloir-oidc-ca/{{ .Values.auth.oidc.caKey }}
+        {{- end }}
+        {{- with .Values.auth.oidc.scopes }}
+        scopes: {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- with .Values.auth.oidc.adminEmails }}
         adminEmails: {{- toYaml . | nindent 10 }}
@@ -37,7 +43,11 @@ data:
         username: {{ .Values.auth.singleUser.username | quote }}
       {{- end }}
     mcpGateway:
-      {{- if .Values.gateway.enabled }}
+      {{- if .Values.gateway.externalEndpoint }}
+      # El chart no despliega el gateway (gateway.enabled=false) — apuntamos a uno ya
+      # desplegado (p.ej. gestionado por otro pipeline). Ver values gateway.externalEndpoint.
+      endpoint: {{ .Values.gateway.externalEndpoint | quote }}
+      {{- else if .Values.gateway.enabled }}
       endpoint: "http://{{ include "leloir.gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8082"
       {{- end }}
     {{- if .Values.llm.enabled }}
@@ -46,12 +56,24 @@ data:
     # (budget/metering/audit). api-key vía LELOIR_LLM_UPSTREAM_KEY (Secret), nunca acá.
     llmBroker:
       driver: {{ .Values.llm.driver | quote }}
-      spendPollInterval: 30s
+      spendPollInterval: {{ .Values.llm.spendPollInterval | default "30s" }}
       {{- if eq .Values.llm.driver "builtin" }}
       # El endpoint debe ser un proxy OpenAI-compatible que maneje la auth upstream
       # (p.ej. litellm con las keys de tus proveedores). Ver docs/OIDC_SETUP + proposal §m15.
       builtin:
         endpoint: {{ .Values.llm.endpoint | quote }}
+      {{- else if eq .Values.llm.driver "litellm-operator" }}
+      # Driver operator (PalenaAI): Leloir reconcilia teams/virtual-keys sobre un
+      # LiteLLMInstance existente. Ver proposal §m15. Config en llm.litellmOperator.
+      litellmOperator:
+        {{- toYaml .Values.llm.litellmOperator | nindent 8 }}
+      {{- else if eq .Values.llm.driver "envoy-ai-gw" }}
+      # Cadena de 2 capas por-tenant: Envoy AI Gateway (keyless, JWT por-tenant) → litellm.
+      # La capa LLM real del homelab. Config en llm.litellmOperator + llm.envoyAIGateway.
+      litellmOperator:
+        {{- toYaml .Values.llm.litellmOperator | nindent 8 }}
+      envoyAIGateway:
+        {{- toYaml .Values.llm.envoyAIGateway | nindent 8 }}
       {{- end }}
     modelProvider:
       models:
@@ -64,8 +86,14 @@ data:
       - tenantID: default
         monthlyMaxUSD: {{ .Values.llm.tenantBudget.monthlyMaxUSD }}
         hardLimitAction: {{ .Values.llm.tenantBudget.hardLimitAction }}
-    {{- if .Values.agents.flagship.enabled }}
-    # Agente flagship first-party. TOOLS reales vía MCPServer CRD / el gateway (no acá).
+    {{- if .Values.agents.raw }}
+    # Passthrough completo (BYO/avanzado): agentes con tools inline, múltiples agentes
+    # (p.ej. holmesgpt), toolsets custom. Los agents/routes son inherentemente free-form;
+    # este modo expone el schema real del CP. Ver examples/values-oidc.yaml + README.
+    agents:
+      {{- toYaml .Values.agents.raw | nindent 6 }}
+    {{- else if .Values.agents.flagship.enabled }}
+    # Agente flagship first-party (canned). TOOLS reales vía MCPServer CRD / el gateway (no acá).
     agents:
       - name: leloir-agent
         type: leloir-agent
@@ -80,15 +108,21 @@ data:
           model: {{ .Values.agents.flagship.model | quote }}
           credentials: {from: llmBroker}
     {{- end }}
-    {{- if .Values.routes.catchAll.enabled }}
+    {{- if .Values.routes.raw }}
+    routes:
+      {{- toYaml .Values.routes.raw | nindent 6 }}
+    {{- else if .Values.routes.catchAll.enabled }}
     routes:
       - name: catch-all
         tenantID: default
-        agentName: leloir-agent
+        agentName: {{ .Values.routes.catchAll.agentName | default "leloir-agent" | quote }}
         enabled: true
         priority: 1
         budgetMaxUSD: {{ .Values.routes.catchAll.budgetMaxUSD }}
-        timeoutMinutes: 10
+        {{- with .Values.routes.catchAll.budgetMaxTokens }}
+        budgetMaxTokens: {{ . }}
+        {{- end }}
+        timeoutMinutes: {{ .Values.routes.catchAll.timeoutMinutes | default 10 }}
     {{- end }}
     {{- end }}
     anomaly:
@@ -131,6 +165,18 @@ data:
       distanceThreshold: {{ .Values.rag.distanceThreshold }}
       retentionDays: {{ .Values.rag.retentionDays }}
     {{- end }}
+    kubernetes:
+      enabled: {{ .Values.kubernetes.enabled }}
     observability:
-      metrics: {enabled: true, addr: ":9091"}
+      {{- if .Values.observability.otlp.enabled }}
+      otlp:
+        enabled: true
+        endpoint: {{ .Values.observability.otlp.endpoint | quote }}
+      {{- else }}
+      otlp: {enabled: false}
+      {{- end }}
+      metrics: {enabled: {{ .Values.observability.metrics.enabled }}, addr: ":{{ .Values.observability.metrics.port }}"}
       serviceName: leloir-controlplane
+      {{- with .Values.observability.environment }}
+      environment: {{ . | quote }}
+      {{- end }}

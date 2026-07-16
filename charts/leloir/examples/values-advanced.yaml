@@ -1,0 +1,129 @@
+# Ejemplo AVANZADO: Leloir integrándose con infra PREEXISTENTE en tu cluster.
+#
+# Caso de uso: ya tenés Postgres, un MCP gateway, y una capa LLM de 2 capas
+# (Envoy AI Gateway → litellm) desplegados por otro pipeline (Ansible, otro chart,
+# un operator). Este chart despliega SÓLO el control plane y lo cablea a esos vecinos.
+#
+# Es el patrón "power-user / BYO": el chart expone el schema real del CP mediante
+# `agents.raw` / `routes.raw` (agentes con tools inline, múltiples agentes) y el
+# driver `envoy-ai-gw`. El homelab del proyecto se instala EXACTAMENTE así.
+#
+#   helm install leloir leloir/leloir -n leloir -f values-advanced.yaml
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+# ── El chart NO despliega la infra que ya tenés ──────────────────────────────────────
+postgresql:
+  enabled: false                # usás tu Postgres → inyectá el DSN por Secret
+externalDatabase:
+  existingSecret: "my-postgres-creds"
+  existingSecretKey: "dsn"
+gateway:
+  enabled: false                # tu MCP gateway ya corre → apuntá al Service existente
+  externalEndpoint: "http://my-mcp-gateway.svc.cluster.local:8082"
+memoryMcp:
+  enabled: false
+webhookReceiver:
+  enabled: false
+
+# ── Capa LLM: driver envoy-ai-gw (Envoy AI Gateway keyless por-tenant → litellm) ──────
+llm:
+  enabled: true
+  driver: envoy-ai-gw
+  model:
+    id: demo-model
+    upstream: claude-sonnet-5   # el nombre del modelo en tu litellm
+    pricing: {inputPer1M: 3.0, outputPer1M: 15.0}
+    maxTokensPerCall: 1024
+  tenantBudget:
+    monthlyMaxUSD: 50
+    hardLimitAction: reject
+  # Reconciliación sobre tu LiteLLMInstance (PalenaAI operator) ya desplegado:
+  litellmOperator:
+    namespace: ai
+    instanceName: my-llm
+    endpoint: http://my-llm.ai.svc.cluster.local:4000
+    models: [claude-sonnet-5]
+  # La capa Envoy (JWT por-tenant, sin key en el pod del agente):
+  envoyAIGateway:
+    namespace: ai
+    gatewayName: my-ai-gw
+    endpoint: http://envoy-ai-<hash>.envoy-gateway-system.svc.cluster.local:80
+    upstreamHost: my-llm.ai.svc.cluster.local
+    upstreamPort: 4000
+    tokensPerHour: 200000
+    requireJWT: true
+
+# ── Agentes: passthrough completo (tools inline + un segundo agente holmesgpt) ────────
+# Cuando `agents.raw` tiene items, REEMPLAZA al flagship canned. Este es el schema real.
+agents:
+  raw:
+    - name: leloir-agent
+      type: leloir-agent
+      tenantID: default
+      harness:
+        systemPrompt: |
+          You are the incident responder. Use get_pods then get_pod_logs on the
+          failing pod, quote the real error from the logs, and give a concrete fix.
+        loop: {maxIterations: 6}
+        model: demo-model
+        credentials: {from: llmBroker}
+        tools:
+          - {server: kubernetes, allow: [get_pods, get_pod_logs, get_pod_events]}
+      custom:
+        tools:
+          definitions:
+            - name: get_pods
+              mcpServer: kubernetes
+              description: List pods with status and restart count in a namespace
+              parameters: {type: object, properties: {namespace: {type: string}}}
+            - name: get_pod_logs
+              mcpServer: kubernetes
+              description: Recent logs of a pod to find the error
+              parameters: {type: object, properties: {namespace: {type: string}, name: {type: string}}, required: [name]}
+            - name: get_pod_events
+              mcpServer: kubernetes
+              description: Kubernetes events for a pod
+              parameters: {type: object, properties: {namespace: {type: string}, name: {type: string}}, required: [name]}
+    - name: holmesgpt
+      type: holmesgpt
+      tenantID: default
+      custom:
+        holmes:
+          apiBaseURL: http://holmesgpt.ai.svc.cluster.local:80
+
+# ── Rutas: passthrough (la alerta la atiende holmesgpt, con tope de tokens) ───────────
+routes:
+  raw:
+    - name: catch-all
+      tenantID: default
+      enabled: true
+      priority: 1
+      agentName: holmesgpt
+      budgetMaxUSD: 1.0
+      budgetMaxTokens: 200000
+      timeoutMinutes: 15
+
+# ── Contención caja-negra (Modo 2): tu litellm es el seam LLM forzado ────────────────
+containment:
+  enabled: true
+  llmHost: my-llm.ai.svc.cluster.local
+  llmPort: 4000
+  extraPlatformNamespaces: [ai]
+
+# ── Observabilidad: ServiceMonitor + dashboards para Prometheus/Grafana operator ─────
+observability:
+  environment: prod
+  serviceMonitor:
+    enabled: true
+    labels: {release: kube-prometheus-stack}   # para que tu Prometheus lo seleccione
+  dashboards:
+    enabled: true
+
+# ── Exposición vía Gateway API (HTTPRoute) en vez de Ingress ─────────────────────────
+ingress:
+  enabled: false
+gateway_api:
+  enabled: true
+  parentRefName: cluster-gateway
+  parentRefNamespace: gateway
+  host: leloir.example.com

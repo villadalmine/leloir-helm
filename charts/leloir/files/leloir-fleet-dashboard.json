@@ -1,0 +1,140 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "Leloir multi-tenant fleet view — MCP tool usage per tenant (per vcluster in the centralized topology). Answers: which tenant used which tool, and how it went.",
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["leloir", "multi-tenant", "mcp"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "label": "Tenant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(leloir_mcp_tool_calls_total, tenant)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Leloir — Multi-Tenant Fleet (MCP)",
+  "uid": "leloir-fleet",
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Tenants activos",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [
+        { "refId": "A", "expr": "count(count by (tenant) (leloir_mcp_tool_calls_total{tenant=~\"$tenant\"}))" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Tool calls (total)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "expr": "sum(leloir_mcp_tool_calls_total{tenant=~\"$tenant\"})" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Denegadas (governance en acción)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "expr": "sum(leloir_mcp_tool_calls_total{tenant=~\"$tenant\",result=\"denied\"})" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errores de tool",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "expr": "sum(leloir_mcp_tool_calls_total{tenant=~\"$tenant\",result=\"tool_error\"})" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Tool calls por tenant (rate)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" } }, "unit": "reqps" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{tenant}}", "expr": "sum by (tenant) (rate(leloir_mcp_tool_calls_total{tenant=~\"$tenant\"}[5m]))" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Top tenants por consumo de tools",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{tenant}}", "expr": "sum by (tenant) (leloir_mcp_tool_calls_total{tenant=~\"$tenant\"})" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tasa de denegación por tenant (governance)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "reqps" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{tenant}}", "expr": "sum by (tenant) (rate(leloir_mcp_tool_calls_total{tenant=~\"$tenant\",result=\"denied\"}[5m]))" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Detalle: tenant × server × tool × result",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 13 },
+      "options": { "showHeader": true },
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "sum by (tenant, server, tool, result) (leloir_mcp_tool_calls_total{tenant=~\"$tenant\"})" }
+      ]
+    }
+  ]
+}
