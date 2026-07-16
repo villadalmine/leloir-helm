@@ -36,6 +36,31 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
+  {{- if .Values.containment.enabled }}
+  # ── Provisioning para black-box containment (Modo 2, spec-m13.4) ──────────────
+  # Sólo cuando containment.enabled: la CP provisiona a los agentes contenidos un
+  # RBAC ACOTADO (Role/RoleBinding namespaced), un egress-lock (CiliumNetworkPolicy),
+  # sincroniza la virtual-key del tenant (Secret) y parchea el Deployment del agente
+  # con el env forzado. Sigue siendo declarativo — NO borra runtime ajeno (D-BB5).
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "create", "patch", "update"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["bind"]
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    verbs: ["get", "list", "create", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch"]
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
