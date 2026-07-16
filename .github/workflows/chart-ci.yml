@@ -1,10 +1,13 @@
 name: Chart CI
 
-# Fase 1 del loop E2E (docs/sales-demo-and-e2e-strategy.md §4, repo leloir):
-# validación BARATA en cada PR, sin cluster — atrapa el 80% de las roturas del
-# chart en segundos. Fases 2-4 (kind smoke, e2e funcional con key demo capped,
-# mode2) están documentadas en ese plan y requieren decisión del owner
-# (minutos de CI + secret de key LLM con cap).
+# Loop E2E — Capa A (install de customer, cluster AISLADO), docs/sales-demo-and-e2e-strategy.md §5:
+#   Job 1 (lint-template-parity): validación BARATA sin cluster — atrapa el 80% en segundos.
+#   Job 2 (kind-smoke): install REAL del chart en kind → 5/5 pods → healthz → CRDs → API.
+#     Es el quickstart del customer, publicable como badge verde. NO usa deps externas ni
+#     keys (LLM con endpoint dummy: el CP arranca y sirve la API; investigar necesita un LLM
+#     real, que es Capa B). La cadena de investigación hermética (mock-holmes) corre en el
+#     repo privado (e2e-hermetic.sh, sin k8s). Capa B (integración con deps vivas + tenant
+#     efímero) = deploy/ci/e2e-workflow.yaml en el cluster real.
 
 on:
   pull_request:
@@ -53,3 +56,75 @@ jobs:
 
       - name: parity check (el chart no pierde features del deploy de referencia)
         run: bash scripts/check-parity.sh
+
+  # ── Capa A — install de customer en un cluster AISLADO (kind) ─────────────────
+  kind-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+
+      # kind = un Kubernetes real y efímero dentro del runner (aislado, cero deps del homelab).
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: leloir-smoke
+          wait: 120s
+
+      - name: helm dependency build
+        run: helm dependency build charts/leloir
+
+      # Install de customer, profile local: Postgres+pgvector bundleado, gateway/memory/webhook
+      # ON (los 5 pods), OIDC OFF (single-user). LLM con endpoint DUMMY → el CP valida el config
+      # y arranca (healthz = server+DB); investigar de verdad es Capa B (necesita un LLM real).
+      - name: helm install (profile local, sin deps externas)
+        run: |
+          helm install leloir charts/leloir \
+            --namespace leloir --create-namespace \
+            --set image.tag=latest \
+            --set llm.endpoint=http://mock-llm.leloir.svc.cluster.local:4000 \
+            --set global.security.allowInsecureImages=true \
+            --wait --timeout 8m || { echo "::error::helm install falló"; exit 1; }
+
+      # El customer espera "5/5 pods" — CP, gateway, memory-mcp, webhook-receiver, postgres.
+      - name: Esperar a que todos los workloads estén Ready
+        run: |
+          set -x
+          kubectl -n leloir rollout status deploy/leloir-controlplane --timeout=180s
+          kubectl -n leloir rollout status deploy/leloir-gateway --timeout=120s
+          kubectl -n leloir rollout status deploy/leloir-memory-mcp --timeout=120s
+          kubectl -n leloir rollout status deploy/leloir-webhook-receiver --timeout=120s
+          kubectl -n leloir rollout status statefulset/leloir-postgresql --timeout=180s
+          kubectl -n leloir get pods -o wide
+
+      - name: Las 10 CRDs de Leloir están instaladas
+        run: |
+          for crd in tenants alertroutes agentregistrations tenantbudgets mcpservers \
+                     investigations scheduledinvestigations skillsources approvalpolicies \
+                     notificationchannels; do
+            kubectl get crd "${crd}.leloir.dev" >/dev/null \
+              && echo "  ✓ ${crd}.leloir.dev" \
+              || { echo "::error::falta la CRD ${crd}.leloir.dev"; exit 1; }
+          done
+
+      - name: El control plane sirve la API (healthz + agents)
+        run: |
+          kubectl -n leloir run smoke-curl --image=curlimages/curl:8.10.1 --restart=Never -i --rm \
+            --command -- sh -c '
+              set -e
+              CP=http://leloir-controlplane.leloir.svc.cluster.local
+              code=$(curl -s -o /dev/null -w "%{http_code}" $CP/healthz); echo "healthz: $code"; [ "$code" = 200 ]
+              code=$(curl -s -o /dev/null -w "%{http_code}" $CP/api/v1/agents); echo "agents: $code"; [ "$code" = 200 ]
+              echo "✓ el CP instalado por el chart sirve la API"
+            '
+
+      - name: Diagnóstico si algo falló
+        if: failure()
+        run: |
+          kubectl -n leloir get pods -o wide || true
+          kubectl -n leloir describe pods || true
+          kubectl -n leloir logs -l app=leloir-controlplane --tail=100 || true
+          kubectl -n leloir get events --sort-by=.lastTimestamp | tail -40 || true
