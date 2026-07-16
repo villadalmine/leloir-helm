@@ -23,6 +23,11 @@ data:
         issuer: {{ .Values.auth.oidc.issuer | quote }}
         clientId: {{ .Values.auth.oidc.clientID | quote }}
         # clientSecret via LELOIR_OIDC_CLIENT_SECRET (Secret).
+        {{- if .Values.auth.oidc.caSecret }}
+        # Trust the issuer's private CA (e.g. Dex behind an in-cluster gateway with
+        # a homelab CA). Mounted from auth.oidc.caSecret. See docs/OIDC_SETUP.md.
+        caFile: /etc/leloir-oidc-ca/{{ .Values.auth.oidc.caKey }}
+        {{- end }}
         {{- with .Values.auth.oidc.adminEmails }}
         adminEmails: {{- toYaml . | nindent 10 }}
         {{- end }}

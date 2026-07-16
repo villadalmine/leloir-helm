@@ -188,8 +188,19 @@ auth:
     # clientSecret via existingSecret (never in values).
     existingSecret: ""
     adminEmails: []         # emails granted the admin role
+    # caSecret: Secret con la CA del issuer (PEM) a montar/confiar cuando el issuer
+    # usa una CA privada (p.ej. Dex tras un gateway in-cluster con cluster-home-ca).
+    # Vacío = solo el trust del sistema. Ver docs/OIDC_SETUP.md. Ej: cluster-home-ca.
+    caSecret: ""
+    caKey: "ca.crt"         # clave del Secret que contiene el PEM de la CA
 
 # Node/scheduling (optional; empty = no restrictions).
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# hostAliases: entradas /etc/hosts para el pod del control plane. Caso de uso: OIDC
+# split-horizon — mapear el hostname del issuer (p.ej. dex.cluster.home) al ClusterIP
+# del gateway cuando su VIP externo no es alcanzable in-cluster. Ver docs/OIDC_SETUP.md.
+# Ej: [{ ip: "10.43.78.4", hostnames: ["dex.cluster.home"] }]
+hostAliases: []

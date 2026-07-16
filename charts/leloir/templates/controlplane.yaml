@@ -33,6 +33,12 @@ spec:
       {{- with .Values.affinity }}
       affinity: {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.hostAliases }}
+      # OIDC split-horizon: cuando el issuer (p.ej. Dex) se sirve por un Gateway cuyo
+      # VIP externo NO es alcanzable in-cluster (hairpin), mapear el hostname del issuer
+      # al ClusterIP del gateway para que el CP valide el issuer. Ver docs/OIDC_SETUP.md.
+      hostAliases: {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
         # Wait for Postgres before starting → clean startup without CrashLoop due to
         # ordering (the control plane needs the DB at startup). busybox, tiny+public.
@@ -120,10 +126,19 @@ spec:
           resources: {{- toYaml .Values.controlPlane.resources | nindent 12 }}
           volumeMounts:
             - {name: config, mountPath: /etc/leloir, readOnly: true}
+            {{- if .Values.auth.oidc.caSecret }}
+            - {name: oidc-ca, mountPath: /etc/leloir-oidc-ca, readOnly: true}
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ include "leloir.controlplane.fullname" . }}
+        {{- if .Values.auth.oidc.caSecret }}
+        # CA del issuer OIDC (p.ej. cluster-home-ca de cert-manager) → auth.oidc.caFile.
+        - name: oidc-ca
+          secret:
+            secretName: {{ .Values.auth.oidc.caSecret }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
