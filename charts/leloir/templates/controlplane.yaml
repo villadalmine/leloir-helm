@@ -76,7 +76,25 @@ spec:
                 secretKeyRef:
                   name: {{ include "leloir.dsnSecret" . }}
                   key: {{ include "leloir.dsnSecretKey" . }}
-            {{- if eq .Values.profile "local" }}
+            {{- if .Values.llm.masterKeySecret }}
+            # Master key del litellm upstream — la usan los drivers litellm-operator /
+            # envoy-ai-gw para reconciliar teams/virtual-keys. Nunca en el ConfigMap.
+            - name: LELOIR_LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llm.masterKeySecret }}
+                  key: {{ .Values.llm.masterKeySecretKey }}
+            {{- end }}
+            {{- if .Values.anomaly.thrashToken.existingSecret }}
+            # Token del listener /internal/anomaly. Bajo GitOps (ArgoCD) el `lookup` de
+            # helm no corre → referenciamos un Secret existente en vez de generarlo (así
+            # el token es ESTABLE y no cambia en cada sync). Ver values anomaly.thrashToken.
+            - name: LELOIR_THRASH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.anomaly.thrashToken.existingSecret }}
+                  key: {{ .Values.anomaly.thrashToken.existingSecretKey }}
+            {{- else if eq .Values.profile "local" }}
             - name: LELOIR_THRASH_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -101,7 +119,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.auth.oidc.existingSecret }}
-                  key: clientSecret
+                  key: {{ .Values.auth.oidc.existingSecretKey }}
             {{- end }}
             {{- if and .Values.audit.streaming.endpoint .Values.audit.streaming.existingSecret }}
             # SIEM streaming bearer (never in the ConfigMap).

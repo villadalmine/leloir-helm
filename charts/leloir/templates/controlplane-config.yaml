@@ -148,8 +148,10 @@ data:
     # get scoped RBAC + egress-lock + forced env pointing at these seams.
     containment:
       enabled: true
-      gatewayHost: "{{ include "leloir.gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
-      gatewayPort: 8082
+      # Por defecto apunta al gateway del chart; si el gateway es externo
+      # (gateway.enabled=false), seteá containment.gatewayHost/Port al Service real.
+      gatewayHost: {{ .Values.containment.gatewayHost | default (printf "%s.%s.svc.cluster.local" (include "leloir.gateway.fullname" .) .Release.Namespace) | quote }}
+      gatewayPort: {{ .Values.containment.gatewayPort | default 8082 }}
       llmHost: {{ .Values.containment.llmHost | quote }}
       llmPort: {{ .Values.containment.llmPort }}
       platformNamespaces:

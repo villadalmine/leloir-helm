@@ -122,6 +122,10 @@ llm:
   spendPollInterval: 30s
   endpoint: ""                # e.g. "http://litellm.svc.cluster.local:4000" — tu proxy LLM
   apiKeySecret: ""            # Secret con key `api-key` (inyectado como env). "" = sin auth
+  # Master key del litellm upstream (SÓLO drivers litellm-operator/envoy-ai-gw): Leloir la
+  # usa para reconciliar teams/virtual-keys. Por Secret, nunca en values. "" = no se inyecta.
+  masterKeySecret: ""         # e.g. litellm-master-key
+  masterKeySecretKey: "master-key"
   # ── Sólo para driver: litellm-operator | envoy-ai-gw (avanzado) ──────────────
   # Reconciliación sobre un LiteLLMInstance (PalenaAI operator) ya desplegado.
   # Vacío para driver builtin. Ver examples/values-oidc.yaml para un ejemplo real.
@@ -185,6 +189,12 @@ rag:                        # Episodic RAG (free)
 anomaly:                    # anomaly → quarantine (free)
   spendVelocityUSD: 0.50
   autoReleaseCooldownMinutes: 30
+  # Token del listener /internal/anomaly. Por defecto (profile local) el chart lo genera
+  # (estable vía lookup). Bajo GitOps/ArgoCD el lookup no corre → referenciá un Secret
+  # existente para que el token no cambie en cada sync; ahí el chart NO lo genera.
+  thrashToken:
+    existingSecret: ""       # e.g. leloir-thrash-token
+    existingSecretKey: "token"
 
 # ─── Kubernetes access (para las tools de incidentes) ─────────────────────────
 # El CP lee pods/logs/events del cluster (vía el gateway + RBAC de rbac.create).
@@ -238,6 +248,10 @@ containment:
   enabled: false
   llmHost: ""               # e.g. litellm-proxy.ai.svc.cluster.local
   llmPort: 4000
+  # Gateway seam para los agentes contenidos. Vacío = el gateway del chart; seteá
+  # host/port si el gateway es externo (gateway.enabled=false + gateway.externalEndpoint).
+  gatewayHost: ""           # e.g. leloir-mcp-gateway.leloir.svc.cluster.local
+  gatewayPort: 8082
   extraPlatformNamespaces: []   # namespaces agents may egress to besides the release ns
 
 # ─── Deployment hardening (chart flags, default OFF — requires Cilium) ────────
@@ -288,6 +302,7 @@ auth:
       - groups
     # clientSecret via existingSecret (never in values).
     existingSecret: ""
+    existingSecretKey: "clientSecret"   # key dentro del Secret (ajustá si tu Secret usa otra, p.ej. client-secret)
     adminEmails: []         # emails granted the admin role
     # caSecret: Secret con la CA del issuer (PEM) a montar/confiar cuando el issuer
     # usa una CA privada (p.ej. Dex tras un gateway in-cluster con cluster-home-ca).
