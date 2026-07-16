@@ -53,5 +53,5 @@ auth:
 #   kubectl get svc -n <gateway-ns> <gateway-svc> -o jsonpath='{.spec.clusterIP}'
 # Si tu issuer es público/externo, dejá hostAliases vacío.
 hostAliases: []
-#   - ip: "10.43.78.4"
+#   - ip: "10.96.0.10"
 #     hostnames: ["dex.example.com"]

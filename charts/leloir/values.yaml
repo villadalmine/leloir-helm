@@ -131,16 +131,16 @@ llm:
   # Vacío para driver builtin. Ver examples/values-oidc.yaml para un ejemplo real.
   litellmOperator: {}
     # namespace: ai
-    # instanceName: leloir-llm
-    # endpoint: http://leloir-llm.ai.svc.cluster.local:4000
+    # instanceName: my-llm
+    # endpoint: http://my-llm.ai.svc.cluster.local:4000
     # models: [claude-sonnet-5]
   # ── Sólo para driver: envoy-ai-gw ────────────────────────────────────────────
   # Cadena 2 capas por-tenant: Envoy AI Gateway (JWT keyless) → litellm.
   envoyAIGateway: {}
     # namespace: ai
-    # gatewayName: leloir-ai-gw
+    # gatewayName: my-ai-gw
     # endpoint: http://envoy-ai-<hash>.envoy-gateway-system.svc.cluster.local:80
-    # upstreamHost: leloir-llm.ai.svc.cluster.local
+    # upstreamHost: my-llm.ai.svc.cluster.local
     # upstreamPort: 4000
     # tokensPerHour: 200000
     # requireJWT: true
@@ -316,7 +316,7 @@ tolerations: []
 affinity: {}
 
 # hostAliases: entradas /etc/hosts para el pod del control plane. Caso de uso: OIDC
-# split-horizon — mapear el hostname del issuer (p.ej. dex.cluster.home) al ClusterIP
+# split-horizon — mapear el hostname del issuer (p.ej. dex.example.com) al ClusterIP
 # del gateway cuando su VIP externo no es alcanzable in-cluster. Ver docs/OIDC_SETUP.md.
-# Ej: [{ ip: "10.43.78.4", hostnames: ["dex.cluster.home"] }]
+# Ej: [{ ip: "10.96.0.10", hostnames: ["dex.example.com"] }]
 hostAliases: []

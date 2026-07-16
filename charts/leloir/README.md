@@ -161,7 +161,7 @@ only matter when the issuer sits behind your own gateway with a private CA:
    in-cluster) — the browser keeps using the external VIP, so the issuer URL stays the same:
    ```yaml
    hostAliases:
-     - ip: "10.43.78.4"          # kubectl get svc -n <gw-ns> <gw-svc> -o jsonpath='{.spec.clusterIP}'
+     - ip: "10.96.0.10"          # kubectl get svc -n <gw-ns> <gw-svc> -o jsonpath='{.spec.clusterIP}'
        hostnames: ["dex.example.com"]
    ```
 
