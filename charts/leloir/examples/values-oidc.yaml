@@ -1,0 +1,57 @@
+# Ejemplo: Leloir con OIDC (SSO) — cualquier proveedor OIDC-compliant (Dex, Keycloak,
+# Google, Entra ID, Okta, Auth0…). Aplicar con:
+#   helm install leloir leloir/leloir -n leloir -f values-oidc.yaml
+#
+# Guía completa + el caso "split-horizon" (issuer detrás de un gateway con CA privada):
+#   docs/OIDC_SETUP.md
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+auth:
+  mode: oidc
+  oidc:
+    enabled: true
+
+    # 1) Issuer — la URL base del proveedor OIDC. Leloir descubre el resto por
+    #    <issuer>/.well-known/openid-configuration. Debe ser alcanzable POR EL POD
+    #    del control plane (para discovery + JWKS) Y por el browser del usuario.
+    issuer: "https://dex.example.com"
+
+    # 2) Client — registrá una app/cliente en tu proveedor con:
+    #      - redirect URI:  https://leloir.example.com/auth/callback
+    #      - grant:         authorization code
+    #    y poné acá su client_id. El client_secret NO va en values (ver 3).
+    clientID: "leloir"
+
+    # 3) Client secret — por Secret, NUNCA en texto plano en values.
+    #    kubectl create secret generic leloir-oidc -n leloir \
+    #      --from-literal=client-secret=<EL_SECRET>
+    #    El chart lo inyecta como env LELOIR_OIDC_CLIENT_SECRET.
+    existingSecret: "leloir-oidc"
+
+    # 4) Admins — emails que reciben el rol "admin" en Leloir. El resto entra como
+    #    usuario normal (sujeto a RBAC). El claim de email viene del id_token.
+    adminEmails:
+      - "you@example.com"
+
+    # ── 5) SOLO si el issuer usa una CA PRIVADA (homelab / interna) ──────────────
+    #    Si el issuer tiene un cert de una CA pública (Let's Encrypt, etc.) borrá
+    #    caSecret. Si usa una CA privada (p.ej. cert-manager self-signed), el pod
+    #    del CP no confía en ella por defecto → montá la CA:
+    #      kubectl create secret generic leloir-oidc-ca -n leloir \
+    #        --from-file=ca.crt=/ruta/a/tu/ca.crt
+    #    Leloir la agrega a su trust store SOLO para el issuer (no reemplaza el pool
+    #    del sistema). Sin esto, el CP crash-loopea al validar el issuer (TLS).
+    caSecret: ""          # p.ej. "leloir-oidc-ca"
+    caKey: "ca.crt"
+
+# ── 6) SPLIT-HORIZON: SOLO si el issuer está detrás de un Gateway cuyo VIP EXTERNO
+#       no es alcanzable desde dentro del cluster (hairpin) ─────────────────────────
+# Síntoma: el browser llega al issuer pero el POD del CP no (timeout al validar).
+# Fix: mapear el hostname del issuer al ClusterIP del gateway (que SÍ es alcanzable
+# in-cluster), sin tocar el DNS del cluster. El browser sigue usando el VIP externo,
+# el pod el ClusterIP → MISMO issuer URL. Buscá el ClusterIP con:
+#   kubectl get svc -n <gateway-ns> <gateway-svc> -o jsonpath='{.spec.clusterIP}'
+# Si tu issuer es público/externo, dejá hostAliases vacío.
+hostAliases: []
+#   - ip: "10.43.78.4"
+#     hostnames: ["dex.example.com"]
