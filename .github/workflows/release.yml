@@ -1,0 +1,47 @@
+name: Chart Release
+
+# Al tagear vX.Y.Z crea un GitHub Release cuyas notas salen de la sección del CHANGELOG
+# para esa versión (features técnicos, NO la lista de commits). El chart ya se publica como
+# artefacto OCI firmado en cada push (ver oci-publish.yml); esto le da a cada versión una
+# página de release legible — así se ve cuál es la última/recomendada.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # crear el Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Notas del release desde el CHANGELOG
+        run: |
+          VER="${GITHUB_REF_NAME}"
+          # En workflow_dispatch (rama, no tag) tomamos la versión del Chart.yaml.
+          case "$VER" in
+            v*) ;;
+            *) VER="v$(grep '^version:' charts/leloir/Chart.yaml | awk '{print $2}')" ;;
+          esac
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          awk -v v="$VER" '
+            $0 ~ "^## " v " " {f=1; next}
+            /^## v[0-9]/ {f=0}
+            f {print}
+          ' CHANGELOG.md > NOTES.md
+          [ -s NOTES.md ] || echo "Chart ${VER}. Ver CHANGELOG.md." > NOTES.md
+          {
+            echo ""
+            echo "---"
+            echo "**Install:** \`helm install leloir oci://ghcr.io/villadalmine/leloir --version ${VER#v} -n leloir --create-namespace\`  ·  chart firmado (cosign keyless)."
+          } >> NOTES.md
+          echo "=== release notes ==="; cat NOTES.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VER }}
+          body_path: NOTES.md
