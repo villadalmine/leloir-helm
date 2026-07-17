@@ -5,7 +5,7 @@ The public **standalone** chart for [Leloir](https://github.com/villadalmine/lel
 
 ```bash
 # Installation (local profile, bundled Postgres+pgvector)
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 --namespace leloir-system --create-namespace
+helm install leloir oci://ghcr.io/villadalmine/leloir --namespace leloir-system --create-namespace
 ```
 
 ## What it deploys
@@ -174,7 +174,7 @@ We highly recommend using [vcluster](https://www.vcluster.com/) to test Leloir w
 
 ```bash
 vcluster create leloir-sandbox -n vcluster-leloir --connect                        # 1. ephemeral sandbox
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
+helm install leloir oci://ghcr.io/villadalmine/leloir \
   --namespace leloir-system --create-namespace --set profile=local                 # 2. install Leloir
 vcluster delete leloir-sandbox -n vcluster-leloir                                   # 3. destroy without a trace
 ```
@@ -184,7 +184,7 @@ vcluster delete leloir-sandbox -n vcluster-leloir                               
 ## External Postgres
 
 ```bash
-helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
+helm install leloir oci://ghcr.io/villadalmine/leloir \
   --set postgresql.enabled=false \
   --set externalDatabase.dsn="postgres://user:pass@rds-host:5432/leloir?sslmode=require"
 ```

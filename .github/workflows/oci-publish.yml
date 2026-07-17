@@ -24,8 +24,17 @@ jobs:
         with:
           version: v3.16.0
 
-      - name: Login to GHCR
+      - name: Login to GHCR (helm)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # cosign lee el docker config (~/.docker/config.json), que `helm registry login`
+      # NO popula → firmaba con UNAUTHORIZED (fallo 17/07). docker/login-action lo llena.
+      - name: Login to GHCR (docker — para cosign)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
