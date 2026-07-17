@@ -34,7 +34,7 @@ license:
 | `profile` | `local` | `local` (safe-to-test) or `corporate` (OIDC + external Postgres) |
 | `postgresql.enabled` | `true` | Bundled Postgres+pgvector; `false` → `externalDatabase.dsn` |
 | `postgresql.auth.password` | `leloir-change-me` | ⚠ override in prod |
-| `image.repository` | `ghcr.io/villadalmine/leloir-controlplane` | private — inject `imagePullSecrets` |
+| `image.repository` | `ghcr.io/villadalmine/leloir-controlplane` | public multi-arch (amd64+arm64); `imagePullSecrets` only for a private mirror |
 | `ingress.enabled` | `true` | Standard Ingress; or `gateway_api.enabled` for HTTPRoute |
 | `hardening.mtls.enabled` | `false` | mTLS SPIFFE (Mission Critical; requires Cilium) |
 | `rag.enabled` / `anomaly.*` | on | Team features (runtime gates them by license) |
