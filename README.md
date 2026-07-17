@@ -5,19 +5,19 @@ Public Helm chart repository for the Leloir Control Plane.
 ## Installation
 
 ```bash
-helm install leloir oci://ghcr.io/villadalmine/leloir \
-  --version 0.1.1 \
+helm install leloir oci://ghcr.io/villadalmine/leloir/leloir-controlplane \
+  --version 0.2.0 \
   --namespace leloir-system \
   --create-namespace
 ```
 
-## Support & Optionality
+## Documentation & Roadmap
 
-- **[Support Matrix](docs/SUPPORT_MATRIX.md)** — what works with what (OIDC providers, CNIs, LLM backends, agents, distros) with honest badges (proven / coded / planned).
-- **[Optionality & Degradation Matrix](docs/OPTIONALITY_MATRIX.md)** — for each pluggable component (memory/Honcho, CNI/Cilium, monitoring/OTEL, LLM, auth…): what happens to the product if you don't use it or swap it. Only two hard dependencies; everything else degrades gracefully.
-- **[Memory Analysis](docs/MEMORY_ANALYSIS.md)** — deep-dive + live results (Honcho, our default) and honest framework comparison (Honcho / mem0 / Zep / Letta) with metrics and real cases where memory changes the outcome.
+All technical documentation, matrices (Support, Optionality, Memory Analysis), and the live strategic Roadmap are available at our public site:
+
+👉 **[leloir.io](https://villadalmine.github.io/leloir-site/)** (Coming Soon)
 
 ## Sandboxed Evaluation
 
 Want to evaluate Leloir safely without polluting your host cluster? 
-Check out our **[Ephemeral Sandbox Guide (vcluster)](docs/EVALUATION.md)** for testing the chart in total isolation — including a **GitOps flavor** ([ArgoCD Application over OCI](deploy/argocd/leloir-application.yaml)) you can combine with vcluster for a fully disposable sandbox.
+Check out our GitOps flavor ([ArgoCD Application over OCI](deploy/argocd/leloir-application.yaml)) you can combine with vcluster for a fully disposable sandbox.
