@@ -25,7 +25,10 @@ license:
 # ─── Images ───────────────────────────────────────────────────────────────────
 image:
   repository: ghcr.io/villadalmine/leloir-controlplane
-  tag: ""                 # empty = uses .Chart.appVersion
+  # `latest` es el tag publicado (multi-arch amd64+arm64). Para prod PINEÁ un digest
+  # o un tag versionado. (Vacío usaría .Chart.appVersion, que hoy no se publica como
+  # tag de imagen → daría ImagePullBackOff; cazado 17/07 por scripts/list-images.sh.)
+  tag: "latest"
   pullPolicy: IfNotPresent
 # The GHCR image is public — imagePullSecrets only needed for private mirrors.
 imagePullSecrets: []

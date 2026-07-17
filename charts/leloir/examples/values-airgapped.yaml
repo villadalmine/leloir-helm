@@ -1,0 +1,49 @@
+# Ejemplo: install AIR-GAPPED (sin internet) — todas las imágenes desde un registry
+# LOCAL que espejaste antes (p.ej. zot, Harbor, un registry:2 interno).
+#
+# Flujo:
+#   1) Con internet, listá las imágenes:  bash scripts/list-images.sh
+#   2) Copiá cada una a tu registry local (skopeo copy / crane copy / docker pull+push,
+#      o un mirror como zot con `sync`). Ver el README §Air-gapped.
+#   3) Instalá con este overlay apuntando a tu registry local:
+#        helm install leloir leloir/leloir -n leloir -f values-airgapped.yaml \
+#          --set image.repository=registry.interno/villadalmine/leloir-controlplane
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+# ── La imagen del control plane (multi-arch) desde tu registry local ─────────────────
+image:
+  repository: registry.interno/villadalmine/leloir-controlplane   # ← tu mirror
+  tag: latest
+  # Si tu registry local requiere auth de PULL, referenciá el Secret:
+  # imagePullSecrets se setea a nivel top-level (ver más abajo).
+
+# El init-container espera a Postgres con busybox → espejalo también.
+# (No hay un value para su repo; si tu cluster no puede pullear docker.io/busybox,
+#  usá un mirror-webhook / registry mirror a nivel nodo, o un RegistryMirror de containerd.)
+
+# ── Postgres bundleado (Bitnami/pgvector) desde tu registry local ────────────────────
+# Alternativa MÁS SIMPLE air-gapped: postgresql.enabled=false + externalDatabase apuntando
+# a un Postgres que ya tengas offline (evita espejar la imagen de Bitnami).
+postgresql:
+  enabled: true
+  image:
+    registry: registry.interno       # ← tu mirror (Bitnami usa image.registry)
+    repository: pgvector/pgvector
+    tag: pg16
+
+# ── Sin dependencias externas de internet ────────────────────────────────────────────
+llm:
+  enabled: true
+  driver: builtin
+  endpoint: "http://litellm.interno.svc.cluster.local:4000"   # tu proxy LLM interno
+memory:
+  honcho:
+    enabled: false          # sin servicios externos
+rag:
+  embeddingModel: "local"   # embedder LOCAL, cero deps (ideal air-gapped)
+
+# ── Auth de PULL al registry local (si hace falta) ───────────────────────────────────
+# Creá el Secret:  kubectl create secret docker-registry regcred -n leloir \
+#   --docker-server=registry.interno --docker-username=... --docker-password=...
+imagePullSecrets: []
+#  - name: regcred

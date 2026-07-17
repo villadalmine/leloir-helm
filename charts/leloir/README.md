@@ -188,3 +188,30 @@ helm install leloir oci://ghcr.io/villadalmine/leloir --version 0.1.1 \
   --set postgresql.enabled=false \
   --set externalDatabase.dsn="postgres://user:pass@rds-host:5432/leloir?sslmode=require"
 ```
+
+## Air-gapped / offline install
+
+Leloir's engine needs no internet at runtime — the RAG embedder is local, and the only
+hard deps are Postgres and your LLM endpoint. To install where the cluster can't reach
+public registries, mirror the images to a **local registry** first:
+
+```bash
+# 1) With internet: list every image the chart pulls
+bash scripts/list-images.sh
+#   busybox:1.36
+#   docker.io/pgvector/pgvector:pg16
+#   ghcr.io/villadalmine/leloir-controlplane:latest
+
+# 2) Copy each into your local registry (skopeo/crane, or a mirror like zot with `sync`)
+skopeo copy docker://ghcr.io/villadalmine/leloir-controlplane:latest \
+            docker://registry.internal/villadalmine/leloir-controlplane:latest
+#   …repeat for the others…
+
+# 3) Install pointing at your mirror (full example: examples/values-airgapped.yaml)
+helm install leloir leloir/leloir -n leloir -f examples/values-airgapped.yaml \
+  --set image.repository=registry.internal/villadalmine/leloir-controlplane
+```
+
+The simplest air-gapped setup uses `postgresql.enabled=false` + an existing offline
+Postgres, `llm.endpoint` pointing at your internal LLM proxy, and `rag.embeddingModel=local`
+— so nothing reaches outside the cluster.

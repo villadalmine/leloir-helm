@@ -84,10 +84,11 @@ jobs:
       # ON (los 5 pods), OIDC OFF (single-user). LLM con endpoint DUMMY → el CP valida el config
       # y arranca (healthz = server+DB); investigar de verdad es Capa B (necesita un LLM real).
       - name: helm install (profile local, sin deps externas)
+        # Sin override de image.tag → testea el DEFAULT que instalaría un customer
+        # (values.yaml image.tag=latest). Así el job caza también un tag por defecto roto.
         run: |
           helm install leloir charts/leloir \
             --namespace leloir --create-namespace \
-            --set image.tag=latest \
             --set llm.endpoint=http://mock-llm.leloir.svc.cluster.local:4000 \
             --set global.security.allowInsecureImages=true \
             --wait --timeout 8m || { echo "::error::helm install falló"; exit 1; }
