@@ -58,18 +58,11 @@ jobs:
         run: bash scripts/check-parity.sh
 
   # ── Capa A — install de customer en un cluster AISLADO (kind) ─────────────────
-  # Runner ARM64 (gratis en repos públicos): la imagen del CP hoy es arm64-only (build
-  # del homelab). FOLLOW-UP de producto: imagen MULTI-ARCH (arm64+amd64) para que Leloir
-  # corra en clusters amd64 (la mayoría cloud/enterprise) — ahí este job puede volver a
-  # ubuntu-latest. Ver docs/BACKLOG (item multi-arch).
+  # Gate DURO: la imagen del CP es MULTI-ARCH (amd64+arm64) desde 17/07, así que corre en
+  # el runner amd64 estándar. (Este job cazó el 16/07 que el latest público estaba
+  # viejo/incompleto → se republicó completo con el workflow build-multi-arch del repo leloir.)
   kind-smoke:
-    runs-on: ubuntu-24.04-arm
-    # continue-on-error mientras el `latest` de GHCR se republica completo: el kind-smoke
-    # (16/07) CAZÓ que el latest público estaba viejo/incompleto (faltan binarios aux +
-    # adapter leloir-agent) → el install crashea. Es un P0 REAL, no una regresión del PR;
-    # por eso el job corre y REPORTA el gap sin bloquear PRs de chart. Quitar este flag
-    # cuando se publique el latest completo (workflow build-multi-arch del repo leloir).
-    continue-on-error: true
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
