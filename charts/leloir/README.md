@@ -189,6 +189,31 @@ helm install leloir oci://ghcr.io/villadalmine/leloir \
   --set externalDatabase.dsn="postgres://user:pass@rds-host:5432/leloir?sslmode=require"
 ```
 
+## Upgrading
+
+```bash
+helm upgrade leloir oci://ghcr.io/villadalmine/leloir -n leloir
+```
+
+⚠️ **CRDs are not upgraded by `helm upgrade`** — this is a [documented Helm
+limitation](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/):
+Helm installs the CRDs in `crds/` once (on first install) and never touches them again, so
+a new chart version that adds or changes a CRD field won't apply on upgrade. Apply them
+yourself first (safe + idempotent — it never deletes your Custom Resources):
+
+```bash
+helm pull oci://ghcr.io/villadalmine/leloir --untar   # fetch the new chart
+kubectl apply -f leloir/crds/                          # update the 10 Leloir CRDs
+helm upgrade leloir oci://ghcr.io/villadalmine/leloir -n leloir
+```
+
+`helm uninstall` likewise leaves the CRDs (and your Tenants/AlertRoutes/…) in place — remove
+them explicitly only if you really want them gone (this deletes every Leloir Custom Resource):
+
+```bash
+kubectl get crd -o name | grep '\.leloir\.dev$' | xargs -r kubectl delete
+```
+
 ## Air-gapped / offline install
 
 Leloir's engine needs no internet at runtime — the RAG embedder is local, and the only

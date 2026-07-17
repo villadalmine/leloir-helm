@@ -125,6 +125,18 @@ jobs:
               echo "✓ el CP instalado por el chart sirve la API"
             '
 
+      # El path de UPGRADE: re-aplicar el mismo release (idempotencia) + un cambio de config
+      # que fuerza un rollout → el CP debe volver a Ready sin romper (campos inmutables,
+      # errores de template en upgrade, checksum→restart limpio).
+      - name: helm upgrade — el path de upgrade rollea limpio
+        run: |
+          helm upgrade leloir charts/leloir \
+            --namespace leloir --reuse-values \
+            --set anomaly.spendVelocityUSD=0.99 \
+            --wait --timeout 5m || { echo "::error::helm upgrade falló"; exit 1; }
+          kubectl -n leloir rollout status deploy/leloir-controlplane --timeout=150s
+          echo "✓ helm upgrade OK — el CP rolleó limpio"
+
       - name: Diagnóstico si algo falló
         if: failure()
         run: |
