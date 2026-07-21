@@ -131,6 +131,14 @@ data:
       # thrashToken via LELOIR_THRASH_TOKEN (Secret).
     audit:
       hotRetentionDays: {{ .Values.audit.hotRetentionDays }}
+      {{- if .Values.audit.hashChain.enabled }}
+      # Tamper-evidence (M2): cada evento se hash-chainea por-tenant
+      # (HashSelf = SHA256(HashPrev + contenido canónico)). VerifyChain detecta
+      # cualquier edición/borrado/reordenamiento posterior. Serialización in-process
+      # (correcta para el control plane single-replica). WORM object-lock = roadmap.
+      hashChain:
+        enabled: true
+      {{- end }}
       {{- if .Values.audit.streaming.endpoint }}
       # SIEM streaming (FREE feature): every audit event is also POSTed to this
       # sink as a JSON batch. Fail-open — a dead sink never blocks anything.

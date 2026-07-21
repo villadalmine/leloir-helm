@@ -234,6 +234,8 @@ observability:
 # LELOIR_AUDIT_STREAM_TOKEN env (set audit.streaming.existingSecret).
 audit:
   hotRetentionDays: 7       # Postgres hot-tier retention (corporate profile default: 90)
+  hashChain:
+    enabled: false          # M2 tamper-evidence: hash-chain per tenant (opt-in; VerifyChain detects tampering)
   streaming:
     endpoint: ""            # empty = disabled
     headers: {}             # extra static headers (e.g. X-Scope-OrgID)
