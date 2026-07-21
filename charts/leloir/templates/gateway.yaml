@@ -26,7 +26,26 @@ data:
       {{- if .Values.controlPlane.internalListener.enabled }}
       anomalyEndpoint: "http://{{ include "leloir.controlplane.fullname" . }}-internal.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.controlPlane.internalListener.port }}/internal/anomaly"
       {{- end }}
-    servers: []
+    servers:
+      {{- /*
+        First-party REFLEXIVE governance toolset (spec-flagship-self-aware-agent).
+        The built-in `self` server lets ANY agent introspect its OWN governance
+        (self_scorecard / self_budget / self_drift), READ-ONLY, tenant-scoped by the
+        gateway header. It's a Leloir built-in — always present when the internal
+        listener is on, no manual ConfigMap edit and no external pipeline needed.
+        tenant "" = shared: the gateway injects X-Leloir-Tenant, so each agent sees
+        ONLY its own governance. Points at the control plane's internal listener.
+      */}}
+      {{- if .Values.controlPlane.internalListener.enabled }}
+      - name: self
+        tenant: ""
+        transport: mcp
+        endpoint: "http://{{ include "leloir.controlplane.fullname" . }}-internal.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.controlPlane.internalListener.port }}/internal/mcp/self"
+        toolAllowlist: [self_scorecard, self_budget, self_drift]
+      {{- end }}
+      {{- with .Values.gateway.servers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment

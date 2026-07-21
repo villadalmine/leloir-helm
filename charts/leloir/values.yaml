@@ -87,6 +87,11 @@ gateway:
   # Si el gateway ya lo despliega otro pipeline (p.ej. Ansible en el homelab), poné
   # enabled:false y seteá externalEndpoint al Service existente. El CP apunta ahí.
   externalEndpoint: ""        # e.g. http://leloir-mcp-gateway.leloir.svc.cluster.local:8082
+  # Per-tenant MCP tool servers (kubernetes, memory, honcho, …). The first-party `self`
+  # reflexive toolset (self_scorecard/budget/drift) is added AUTOMATICALLY when the internal
+  # listener is on — you don't declare it here. Declare your own tenant tool servers:
+  #   - {name: kubernetes, tenant: team-a, transport: http, endpoint: http://…, toolAllowlist: [get_pods]}
+  servers: []
   replicas: 1
   resources:
     requests: {cpu: "50m", memory: "128Mi"}
