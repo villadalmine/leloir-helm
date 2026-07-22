@@ -20,4 +20,4 @@ All technical documentation, matrices (Support, Optionality, Memory Analysis), a
 ## Sandboxed Evaluation
 
 Want to evaluate Leloir safely without polluting your host cluster or modifying host CRDs? 
-Read our step-by-step [Sandboxed Evaluation Guide (vcluster)](docs/EVALUATION.md) to run a 100% disposable evaluation using `vcluster` or GitOps with ArgoCD.
+Read our step-by-step [Sandboxed Testing Guide (vcluster)](docs/SANDBOX.md) to run a 100% disposable evaluation using `vcluster` or GitOps with ArgoCD.

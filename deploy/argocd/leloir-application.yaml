@@ -8,7 +8,7 @@
 #
 # NOTE (CRDs): the chart ships 10 cluster-scoped CRDs. Point the destination
 # at a cluster that does NOT already run Leloir — for evaluation, a vcluster
-# is the ideal target (see docs/EVALUATION.md): register the vcluster in
+# is the ideal target (see docs/SANDBOX.md): register the vcluster in
 # ArgoCD (`argocd cluster add`) and set `destination.name` accordingly.
 ---
 apiVersion: v1
