@@ -179,7 +179,7 @@ helm install leloir oci://ghcr.io/villadalmine/leloir \
 vcluster delete leloir-sandbox -n vcluster-leloir                                   # 3. destroy without a trace
 ```
 
-📖 **Step-by-step guide (requirements, verification, UI access):** [`docs/EVALUATION.md`](../../docs/EVALUATION.md).
+📖 **Step-by-step guide (requirements, verification, UI access):** [`docs/SANDBOX.md`](../../docs/SANDBOX.md).
 
 ## External Postgres
 
