@@ -186,6 +186,9 @@ data:
       otlp: {enabled: false}
       {{- end }}
       metrics: {enabled: {{ .Values.observability.metrics.enabled }}, addr: ":{{ .Values.observability.metrics.port }}"}
+      {{- with .Values.observability.prometheus.url }}
+      prometheus: {url: {{ . | quote }}}
+      {{- end }}
       serviceName: leloir-controlplane
       {{- with .Values.observability.environment }}
       environment: {{ . | quote }}

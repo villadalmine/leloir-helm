@@ -219,6 +219,11 @@ observability:
   otlp:
     enabled: false
     endpoint: ""            # e.g. http://alloy.observability.svc.cluster.local:4317
+  # Prometheus externo que scrapea el CP. Alimenta los trends per-tenant de la UI
+  # (GET /api/v1/metrics/trends/{metric}). Vacío → los trends devuelven 503 (el
+  # catálogo y /metrics/summary siguen andando). Dependencia opcional.
+  prometheus:
+    url: ""                 # e.g. http://kube-prometheus-stack-prometheus.monitoring.svc:9090
   environment: ""          # etiqueta de entorno en las métricas/trazas (p.ej. homelab, prod)
   # ServiceMonitor (Prometheus Operator) — scrapea el CP y el gateway. Requiere el CRD.
   serviceMonitor:
