@@ -305,6 +305,10 @@ auth:
   mode: single-user
   singleUser:
     username: admin
+  # SCIM group → rol Leloir. En login OIDC, el rol del usuario se eleva al MÁS ALTO
+  # que le concedan sus grupos SCIM (Okta/Azure gestiona el RBAC vía membresía). Vacío
+  # = los grupos no afectan authz. Ej: {platform-admins: admin, sre-oncall: admin}.
+  groupRoleMappings: {}
   oidc:
     enabled: false
     issuer: ""

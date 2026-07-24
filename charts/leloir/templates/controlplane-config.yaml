@@ -42,6 +42,11 @@ data:
       singleUser:
         username: {{ .Values.auth.singleUser.username | quote }}
       {{- end }}
+      {{- with .Values.auth.groupRoleMappings }}
+      # SCIM group displayName → rol Leloir. En login OIDC el rol se eleva al más alto
+      # que concedan los grupos del usuario (la asignación del IdP maneja el RBAC).
+      groupRoleMappings: {{- toYaml . | nindent 8 }}
+      {{- end }}
     mcpGateway:
       {{- if .Values.gateway.externalEndpoint }}
       # El chart no despliega el gateway (gateway.enabled=false) — apuntamos a uno ya
